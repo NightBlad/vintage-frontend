@@ -1,0 +1,145 @@
+export interface Category {
+  id: number;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  active: boolean;
+  displayOrder?: number;
+  productCount?: number;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  productCode: string;
+  description?: string;
+  ingredients?: string;
+  usage?: string;
+  contraindications?: string;
+  price: number;
+  salePrice?: number;
+  stockQuantity: number;
+  manufacturer?: string;
+  country?: string;
+  dosageForm?: string;
+  packaging?: string;
+  imageUrl?: string;
+  prescriptionRequired: boolean;
+  active: boolean;
+  featured: boolean;
+  category?: Category;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Page<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  subtotal: number;
+}
+
+export interface CartSummary {
+  items: CartItem[];
+  totalItems: number;
+  totalAmount: number;
+}
+
+export interface OrderItem {
+  id: number;
+  product: Product;
+  productName: string;
+  productCode: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
+export interface Order {
+  id: number;
+  orderNumber: string;
+  totalAmount: number;
+  shippingFee: number;
+  discount: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  shippingAddress: string;
+  notes?: string;
+  orderDate: string;
+  orderItems: OrderItem[];
+}
+
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  address?: string;
+  enabled: boolean;
+  accountLocked: boolean;
+  roles: string[];
+  createdAt?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  type: string;
+  username: string;
+  fullName: string;
+  email: string;
+  roles: string[];
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  fullName: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface CheckoutRequest {
+  fullName: string;
+  phone: string;
+  address: string;
+  notes?: string;
+  paymentMethod: string;
+}
+
+export interface DashboardStats {
+  totalProducts: number;
+  totalCategories: number;
+  totalUsers: number;
+  totalOrders: number;
+  lowStockCount: number;
+  lowStockProducts: Product[];
+  recentOrders: Order[];
+}
+
+export interface ChatMessage {
+  role: 'user' | 'bot';
+  content: string;
+  timestamp?: Date;
+}
+

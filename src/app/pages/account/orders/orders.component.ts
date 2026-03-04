@@ -1,0 +1,100 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { LayoutComponent } from '../../../components/layout/layout.component';
+import { OrderService } from '../../../services/order.service';
+import { Order, Page } from '../../../models/models';
+
+@Component({
+  selector: 'app-orders',
+  standalone: true,
+  imports: [CommonModule, RouterLink, LayoutComponent],
+  template: `
+    <app-layout>
+      <div class="container my-5">
+        <h2 class="fw-bold mb-4"><i class="fas fa-box me-2 text-primary"></i>Đơn hàng của tôi</h2>
+        <div class="alert alert-success" *ngIf="successMsg"><i class="fas fa-check-circle me-2"></i>{{ successMsg }}</div>
+        <div class="alert alert-danger" *ngIf="errorMsg"><i class="fas fa-exclamation-circle me-2"></i>{{ errorMsg }}</div>
+        <div class="text-center py-5" *ngIf="loading"><div class="spinner-border text-primary"></div></div>
+
+        <div *ngIf="!loading && ordersPage?.content?.length">
+          <div class="card mb-3 shadow-sm" *ngFor="let order of ordersPage!.content">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <div>
+                <strong>#{{ order.orderNumber }}</strong>
+                <small class="text-muted ms-2">{{ order.orderDate | date:'dd/MM/yyyy HH:mm' }}</small>
+              </div>
+              <span class="badge" [ngClass]="getStatusClass(order.status)">{{ getStatusLabel(order.status) }}</span>
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <p class="mb-1"><i class="fas fa-shopping-bag me-2 text-muted"></i>{{ order.orderItems.length }} sản phẩm</p>
+                  <p class="mb-0"><i class="fas fa-map-marker-alt me-2 text-muted"></i>{{ order.shippingAddress }}</p>
+                </div>
+                <div class="text-end">
+                  <div class="h5 text-primary fw-bold mb-2">{{ order.totalAmount | number:'1.0-0' }} VNĐ</div>
+                  <div class="d-flex gap-2">
+                    <a [routerLink]="['/account/orders', order.id]" class="btn btn-primary btn-sm">
+                      <i class="fas fa-eye me-1"></i>Xem
+                    </a>
+                    <button class="btn btn-outline-danger btn-sm" *ngIf="order.status === 'PENDING'" (click)="cancel(order.id)">
+                      <i class="fas fa-times me-1"></i>Hủy
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center py-5" *ngIf="!loading && !ordersPage?.content?.length">
+          <i class="fas fa-box-open fa-3x text-muted mb-3 d-block"></i>
+          <h4 class="text-muted">Bạn chưa có đơn hàng nào</h4>
+          <a routerLink="/products" class="btn btn-primary mt-3">Bắt đầu mua sắm</a>
+        </div>
+      </div>
+    </app-layout>
+  `
+})
+export class OrdersComponent implements OnInit {
+  ordersPage: Page<Order> | null = null;
+  loading = true;
+  successMsg = '';
+  errorMsg = '';
+
+  constructor(private orderService: OrderService) {}
+
+  ngOnInit(): void { this.load(); }
+
+  load(): void {
+    this.loading = true;
+    this.orderService.getMyOrders().subscribe({
+      next: p => { this.ordersPage = p; this.loading = false; },
+      error: () => this.loading = false
+    });
+  }
+
+  cancel(id: number): void {
+    this.orderService.cancelOrder(id).subscribe({
+      next: () => { this.successMsg = 'Đơn hàng đã được hủy.'; this.load(); },
+      error: (err: any) => this.errorMsg = err.error?.message || 'Không thể hủy đơn hàng.'
+    });
+  }
+
+  getStatusClass(s: string): string {
+    const map: Record<string, string> = {
+      PENDING: 'bg-warning text-dark', CONFIRMED: 'bg-info', SHIPPING: 'bg-primary',
+      DELIVERED: 'bg-success', CANCELLED: 'bg-danger', RETURNED: 'bg-secondary'
+    };
+    return map[s] || 'bg-secondary';
+  }
+
+  getStatusLabel(s: string): string {
+    const map: Record<string, string> = {
+      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', SHIPPING: 'Đang giao',
+      DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy', RETURNED: 'Đã trả'
+    };
+    return map[s] || s;
+  }
+}
