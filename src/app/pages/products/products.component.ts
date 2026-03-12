@@ -28,21 +28,49 @@ import { environment } from '../../../environments/environment';
           <div class="col-12">
             <h5><i class="fas fa-filter me-2"></i>Lọc theo danh mục:</h5>
             <div class="row g-2 mt-2">
+              <!-- "All" button -->
               <div class="col-md-2 col-6">
-                <a routerLink="/products" class="category-card d-block" [class.active]="!currentCategoryId">
+                <a routerLink="/products" class="category-card d-block" [class.active]="!currentMainCategoryId && !currentSubCategoryId">
                   <i class="fas fa-th-large text-primary fa-2x mb-2"></i>
-                  <div class="fw-medium">Tất cả</div>
+                  <div class="fw-medium small">Tất cả</div>
                 </a>
               </div>
-              <div class="col-md-2 col-6" *ngFor="let cat of categories">
-                <a [routerLink]="['/products']" [queryParams]="{categoryId: cat.id}"
-                   class="category-card d-block" [class.active]="currentCategoryId === cat.id">
+
+              <!-- Main categories -->
+              <div class="col-md-2 col-6" *ngFor="let cat of mainCategories">
+                <a [routerLink]="['/products']" [queryParams]="{mainCategoryId: cat.id}"
+                   class="category-card d-block" [class.active]="currentMainCategoryId === cat.id && !currentSubCategoryId">
                   <i class="fas fa-pills text-primary fa-2x mb-2"></i>
-                  <div class="fw-medium">{{ cat.name }}</div>
+                  <div class="fw-medium small">{{ cat.name }}</div>
+                </a>
+              </div>
+            </div>
+
+            <!-- Sub categories filter (if main category selected) -->
+            <div class="row g-2 mt-3" *ngIf="currentMainCategoryId && subCategories.length">
+              <div class="col-12">
+                <small class="text-muted">Danh mục phụ:</small>
+              </div>
+              <div class="col-md-2 col-6" *ngFor="let subCat of subCategories">
+                <a [routerLink]="['/products']" [queryParams]="{subCategoryId: subCat.id}"
+                   class="category-card d-block category-card-sub" [class.active]="currentSubCategoryId === subCat.id">
+                  <i class="fas fa-layer-group text-info fa-2x mb-2"></i>
+                  <div class="fw-medium small">{{ subCat.name }}</div>
                 </a>
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Current filter display -->
+        <div class="alert alert-info" *ngIf="currentMainCategoryId || currentSubCategoryId">
+          <i class="fas fa-info-circle me-2"></i>
+          Hiện tại đang xem:
+          <strong>{{ currentMainCategoryName }}</strong>
+          <span *ngIf="currentSubCategoryName"> > {{ currentSubCategoryName }}</span>
+          <a href="javascript:void(0)" (click)="clearFilters()" class="ms-2">
+            <i class="fas fa-times"></i> Xóa lọc
+          </a>
         </div>
 
         <!-- Loading -->
@@ -65,6 +93,11 @@ import { environment } from '../../../environments/environment';
               </div>
               <div class="card-body d-flex flex-column">
                 <h6 class="fw-bold">{{ product.name }}</h6>
+                <small class="text-muted mb-2">
+                  <i class="fas fa-folder me-1"></i>
+                  {{ product.mainCategoryName }}
+                  <span *ngIf="product.subCategoryName"> > {{ product.subCategoryName }}</span>
+                </small>
                 <p class="text-muted small flex-grow-1">{{ product.description | slice:0:80 }}{{ (product.description?.length||0)>80?'...':'' }}</p>
                 <div class="mt-auto">
                   <div *ngIf="product.salePrice && product.salePrice > 0">
@@ -126,9 +159,15 @@ import { environment } from '../../../environments/environment';
 })
 export class ProductsComponent implements OnInit {
   productsPage: Page<Product> | null = null;
-  categories: Category[] = [];
+  mainCategories: Category[] = [];
+  subCategories: Category[] = [];
+
   currentPage = 0;
-  currentCategoryId?: number;
+  currentMainCategoryId?: number;
+  currentSubCategoryId?: number;
+  currentMainCategoryName = '';
+  currentSubCategoryName = '';
+
   loading = true;
 
   constructor(
@@ -141,24 +180,68 @@ export class ProductsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.categoryService.getAll().subscribe(c => this.categories = c);
+    this.categoryService.getAll().subscribe(categories => {
+      this.mainCategories = categories.filter(c => c.isMainCategory);
+    });
+
     this.route.queryParams.subscribe(params => {
       this.currentPage = +params['page'] || 0;
-      this.currentCategoryId = params['categoryId'] ? +params['categoryId'] : undefined;
+      this.currentMainCategoryId = params['mainCategoryId'] ? +params['mainCategoryId'] : undefined;
+      this.currentSubCategoryId = params['subCategoryId'] ? +params['subCategoryId'] : undefined;
+
+      this.updateCategoryNames();
+      this.updateSubCategories();
       this.loadProducts();
     });
   }
 
+  private updateCategoryNames(): void {
+    this.currentMainCategoryName = '';
+    this.currentSubCategoryName = '';
+
+    if (this.currentMainCategoryId) {
+      const mainCat = this.mainCategories.find(c => c.id === this.currentMainCategoryId);
+      if (mainCat) this.currentMainCategoryName = mainCat.name;
+
+      if (this.currentSubCategoryId) {
+        const subCat = mainCat?.subCategories?.find(c => c.id === this.currentSubCategoryId);
+        if (subCat) this.currentSubCategoryName = subCat.name;
+      }
+    }
+  }
+
+  private updateSubCategories(): void {
+    this.subCategories = [];
+    if (this.currentMainCategoryId) {
+      const mainCat = this.mainCategories.find(c => c.id === this.currentMainCategoryId);
+      if (mainCat?.subCategories) {
+        this.subCategories = mainCat.subCategories;
+      }
+    }
+  }
+
   loadProducts(): void {
     this.loading = true;
-    this.productService.getAll(this.currentPage, 12, this.currentCategoryId).subscribe({
+    this.productService.getAll(
+      this.currentPage,
+      12,
+      this.currentMainCategoryId,
+      this.currentSubCategoryId
+    ).subscribe({
       next: p => { this.productsPage = p; this.loading = false; },
       error: () => this.loading = false
     });
   }
 
   changePage(page: number): void {
-    this.router.navigate([], { queryParams: { page, categoryId: this.currentCategoryId }, queryParamsHandling: 'merge' });
+    const params: any = { page };
+    if (this.currentMainCategoryId) params.mainCategoryId = this.currentMainCategoryId;
+    if (this.currentSubCategoryId) params.subCategoryId = this.currentSubCategoryId;
+    this.router.navigate([], { queryParams: params });
+  }
+
+  clearFilters(): void {
+    this.router.navigate(['/products']);
   }
 
   getPages(): number[] {

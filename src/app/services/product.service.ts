@@ -10,9 +10,10 @@ export class ProductService {
 
   constructor(private http: HttpClient) {}
 
-  getAll(page = 0, size = 12, categoryId?: number): Observable<Page<Product>> {
+  getAll(page = 0, size = 12, mainCategoryId?: number, subCategoryId?: number): Observable<Page<Product>> {
     let params = new HttpParams().set('page', page).set('size', size);
-    if (categoryId) params = params.set('categoryId', categoryId);
+    if (mainCategoryId) params = params.set('mainCategoryId', mainCategoryId);
+    if (subCategoryId) params = params.set('subCategoryId', subCategoryId);
     return this.http.get<Page<Product>>(this.apiUrl, { params });
   }
 

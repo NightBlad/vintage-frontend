@@ -3,9 +3,12 @@ export interface Category {
   name: string;
   description?: string;
   imageUrl?: string;
-  active: boolean;
+  active?: boolean;
   displayOrder?: number;
   productCount?: number;
+  parentId?: number | null;
+  isMainCategory: boolean;
+  subCategories?: Category[];
 }
 
 export interface Product {
@@ -17,7 +20,7 @@ export interface Product {
   usage?: string;
   contraindications?: string;
   price: number;
-  salePrice?: number;
+  salePrice?: number | null;
   stockQuantity: number;
   manufacturer?: string;
   country?: string;
@@ -28,6 +31,12 @@ export interface Product {
   active: boolean;
   featured: boolean;
   category?: Category;
+  categoryId?: number;
+  categoryName?: string;
+  mainCategoryId?: number | null;
+  mainCategoryName?: string | null;
+  subCategoryId?: number | null;
+  subCategoryName?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

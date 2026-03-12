@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { Category } from '../models/models';
 import { environment } from '../../environments/environment';
 
@@ -16,6 +16,44 @@ export class CategoryService {
 
   getById(id: number): Observable<Category> {
     return this.http.get<Category>(`${this.apiUrl}/${id}`);
+  }
+
+  /**
+   * Get flattened list of all categories (main + sub combined)
+   */
+  getAllFlat(): Observable<Category[]> {
+    return this.getAll().pipe(
+      map(categories => this.flattenCategories(categories))
+    );
+  }
+
+  /**
+   * Get list of main categories only
+   */
+  getMainCategories(): Observable<Category[]> {
+    return this.getAll().pipe(
+      map(categories => categories.filter(cat => cat.isMainCategory))
+    );
+  }
+
+  /**
+   * Get sub-categories for a main category
+   */
+  getSubCategories(mainCategoryId: number): Observable<Category[]> {
+    return this.getById(mainCategoryId).pipe(
+      map(category => category.subCategories || [])
+    );
+  }
+
+  private flattenCategories(categories: Category[]): Category[] {
+    const result: Category[] = [];
+    for (const cat of categories) {
+      result.push(cat);
+      if (cat.subCategories) {
+        result.push(...cat.subCategories);
+      }
+    }
+    return result;
   }
 
   // Admin

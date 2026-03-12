@@ -21,8 +21,11 @@ import { environment } from '../../../environments/environment';
           <ol class="breadcrumb">
             <li class="breadcrumb-item"><a routerLink="/">Trang chủ</a></li>
             <li class="breadcrumb-item"><a routerLink="/products">Sản phẩm</a></li>
-            <li class="breadcrumb-item" *ngIf="product.category">
-              <a [routerLink]="['/products']" [queryParams]="{categoryId: product.category.id}">{{ product.category.name }}</a>
+            <li class="breadcrumb-item" *ngIf="product.mainCategoryId">
+              <a [routerLink]="['/products']" [queryParams]="{mainCategoryId: product.mainCategoryId}">{{ product.mainCategoryName }}</a>
+            </li>
+            <li class="breadcrumb-item" *ngIf="product.subCategoryId">
+              <a [routerLink]="['/products']" [queryParams]="{subCategoryId: product.subCategoryId}">{{ product.subCategoryName }}</a>
             </li>
             <li class="breadcrumb-item active">{{ product.name }}</li>
           </ol>
@@ -48,9 +51,12 @@ import { environment } from '../../../environments/environment';
           <div class="col-lg-6">
             <h1 class="h2 fw-bold mb-3">{{ product.name }}</h1>
             <p class="text-muted"><i class="fas fa-barcode me-2"></i>Mã: <strong>{{ product.productCode }}</strong></p>
-            <p *ngIf="product.category">
+            <p>
               <i class="fas fa-tags me-2"></i>Danh mục:
-              <a [routerLink]="['/products']" [queryParams]="{categoryId: product.category.id}">{{ product.category.name }}</a>
+              <span *ngIf="product.mainCategoryId">
+                <a [routerLink]="['/products']" [queryParams]="{mainCategoryId: product.mainCategoryId}">{{ product.mainCategoryName }}</a>
+                <span *ngIf="product.subCategoryId"> > <a [routerLink]="['/products']" [queryParams]="{subCategoryId: product.subCategoryId}">{{ product.subCategoryName }}</a></span>
+              </span>
             </p>
 
             <!-- Price -->

@@ -5,7 +5,7 @@ import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { ProductService } from '../../../services/product.service';
 import { CategoryService } from '../../../services/category.service';
-import { Category } from '../../../models/models';
+import { Category, Product } from '../../../models/models';
 import { environment } from '../../../../environments/environment';
 
 @Component({
@@ -48,14 +48,35 @@ import { environment } from '../../../../environments/environment';
                     <label class="form-label fw-medium">Mã sản phẩm <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" [(ngModel)]="model.productCode" name="productCode" required>
                   </div>
-                  <div class="col-md-6 mb-3">
-                    <label class="form-label fw-medium">Danh mục</label>
-                    <select class="form-select" [(ngModel)]="model.categoryId" name="categoryId">
-                      <option [value]="null">-- Chọn danh mục --</option>
-                      <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
+                </div>
+
+                <!-- Category selection (2-level) -->
+                <div class="card bg-light border-info mb-3 p-3">
+                  <h6 class="fw-bold mb-3"><i class="fas fa-sitemap me-2 text-info"></i>Danh mục sản phẩm</h6>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-medium">Danh mục chính <span class="text-danger">*</span></label>
+                    <select class="form-select" [(ngModel)]="selectedMainCategoryId" name="mainCategoryId" (change)="onMainCategoryChange()" required>
+                      <option [value]="null">-- Chọn danh mục chính --</option>
+                      <option *ngFor="let c of mainCategories" [value]="c.id">{{ c.name }}</option>
                     </select>
+                    <small class="text-muted">Bắt buộc phải chọn danh mục chính</small>
+                  </div>
+
+                  <div class="mb-3" *ngIf="availableSubCategories.length">
+                    <label class="form-label fw-medium">Danh mục phụ (tùy chọn)</label>
+                    <select class="form-select" [(ngModel)]="selectedSubCategoryId" name="subCategoryId" (change)="onSubCategoryChange()">
+                      <option [value]="null">-- Không chọn danh mục phụ --</option>
+                      <option *ngFor="let c of availableSubCategories" [value]="c.id">{{ c.name }}</option>
+                    </select>
+                    <small class="text-muted">Nếu chọn danh mục phụ, sẽ ưu tiên danh mục phụ trong việc lưu</small>
+                  </div>
+
+                  <div class="alert alert-info small" *ngIf="selectedMainCategoryId && !availableSubCategories.length">
+                    <i class="fas fa-info-circle me-1"></i>Danh mục chính này chưa có danh mục phụ
                   </div>
                 </div>
+
                 <div class="mb-3">
                   <label class="form-label fw-medium">Mô tả</label>
                   <textarea class="form-control" rows="3" [(ngModel)]="model.description" name="description"></textarea>
@@ -149,12 +170,16 @@ import { environment } from '../../../../environments/environment';
             </div>
 
             <div class="d-grid gap-2">
-              <button type="submit" class="btn btn-primary" [disabled]="saving || !f.valid">
+              <button type="submit" class="btn btn-primary" [disabled]="saving || !f.valid || !selectedMainCategoryId">
                 <span *ngIf="saving" class="spinner-border spinner-border-sm me-2"></span>
                 <i *ngIf="!saving" class="fas fa-save me-2"></i>
                 {{ isEdit ? 'Cập nhật' : 'Thêm sản phẩm' }}
               </button>
               <a routerLink="/admin/products" class="btn btn-outline-secondary">Hủy</a>
+            </div>
+
+            <div class="alert alert-warning small mt-3" *ngIf="!selectedMainCategoryId">
+              <i class="fas fa-exclamation-triangle me-1"></i>Vui lòng chọn danh mục chính
             </div>
           </div>
         </div>
@@ -169,16 +194,34 @@ export class ProductFormComponent implements OnInit {
   loading = false;
   saving = false;
   error = '';
-  categories: Category[] = [];
+
+  mainCategories: Category[] = [];
+  availableSubCategories: Category[] = [];
+
+  selectedMainCategoryId: number | null = null;
+  selectedSubCategoryId: number | null = null;
+
   selectedFile: File | null = null;
   previewUrl: string | null = null;
   currentImageUrl: string | null = null;
 
-  model: any = {
-    name: '', productCode: '', description: '', ingredients: '', usage: '',
-    contraindications: '', price: 0, salePrice: null, stockQuantity: 0,
-    manufacturer: '', country: '', dosageForm: '', packaging: '',
-    active: true, featured: false, prescriptionRequired: false, categoryId: null
+  model: Partial<Product> = {
+    name: '',
+    productCode: '',
+    description: '',
+    ingredients: '',
+    usage: '',
+    contraindications: '',
+    price: 0,
+    salePrice: null,
+    stockQuantity: 0,
+    manufacturer: '',
+    country: '',
+    dosageForm: '',
+    packaging: '',
+    active: true,
+    featured: false,
+    prescriptionRequired: false
   };
 
   constructor(
@@ -189,7 +232,10 @@ export class ProductFormComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.categoryService.getAll().subscribe(c => this.categories = c);
+    this.categoryService.getAll().subscribe(cats => {
+      this.mainCategories = cats.filter(c => c.isMainCategory);
+    });
+
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isEdit = true;
@@ -197,25 +243,78 @@ export class ProductFormComponent implements OnInit {
       this.productService.getById(+id).subscribe({
         next: p => {
           this.model = {
-            name: p.name, productCode: p.productCode, description: p.description || '',
-            ingredients: p.ingredients || '', usage: p.usage || '',
-            contraindications: p.contraindications || '', price: p.price,
-            salePrice: p.salePrice || null, stockQuantity: p.stockQuantity,
-            manufacturer: p.manufacturer || '', country: p.country || '',
-            dosageForm: p.dosageForm || '', packaging: p.packaging || '',
-            active: p.active, featured: p.featured,
-            prescriptionRequired: p.prescriptionRequired,
-            categoryId: p.category?.id || null
+            name: p.name,
+            productCode: p.productCode,
+            description: p.description || '',
+            ingredients: p.ingredients || '',
+            usage: p.usage || '',
+            contraindications: p.contraindications || '',
+            price: p.price,
+            salePrice: p.salePrice || null,
+            stockQuantity: p.stockQuantity,
+            manufacturer: p.manufacturer || '',
+            country: p.country || '',
+            dosageForm: p.dosageForm || '',
+            packaging: p.packaging || '',
+            active: p.active,
+            featured: p.featured,
+            prescriptionRequired: p.prescriptionRequired
           };
+
+          // Set category selections
+          if (p.subCategoryId) {
+            this.selectedSubCategoryId = p.subCategoryId;
+            // Find parent of this subcategory
+            const parent = this.mainCategories.find(c =>
+              c.subCategories?.some(sub => sub.id === p.subCategoryId)
+            );
+            if (parent) {
+              this.selectedMainCategoryId = parent.id;
+              this.updateSubCategories();
+            }
+          } else if (p.mainCategoryId) {
+            this.selectedMainCategoryId = p.mainCategoryId;
+            this.updateSubCategories();
+          }
+
           if (p.imageUrl) {
             this.currentImageUrl = p.imageUrl.startsWith('http')
               ? p.imageUrl
-              : `${environment.apiUrl.replace('/api', '')}/uploads/products/${p.imageUrl}`;
+              : `${environment.apiUrl.replace('/api/v1', '')}/uploads/products/${p.imageUrl}`;
           }
           this.loading = false;
         },
-        error: () => { this.error = 'Không tìm thấy sản phẩm'; this.loading = false; }
+        error: () => {
+          this.error = 'Không tìm thấy sản phẩm';
+          this.loading = false;
+        }
       });
+    }
+  }
+
+  onMainCategoryChange(): void {
+    this.selectedSubCategoryId = null;
+    this.updateSubCategories();
+  }
+
+  onSubCategoryChange(): void {
+    // Validation: if subcategory is selected, ensure it belongs to current main category
+    if (this.selectedSubCategoryId && this.selectedMainCategoryId) {
+      const mainCat = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
+      const validSubIds = mainCat?.subCategories?.map(s => s.id) || [];
+      if (!validSubIds.includes(this.selectedSubCategoryId)) {
+        this.selectedSubCategoryId = null;
+      }
+    }
+  }
+
+  private updateSubCategories(): void {
+    this.availableSubCategories = [];
+    if (this.selectedMainCategoryId) {
+      const mainCat = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
+      if (mainCat?.subCategories) {
+        this.availableSubCategories = mainCat.subCategories;
+      }
     }
   }
 
@@ -230,15 +329,45 @@ export class ProductFormComponent implements OnInit {
   }
 
   submit(): void {
+    if (!this.selectedMainCategoryId) {
+      this.error = 'Vui lòng chọn danh mục chính';
+      return;
+    }
+
+    // Validate subcategory belongs to selected main category
+    if (this.selectedSubCategoryId && this.selectedMainCategoryId) {
+      const mainCat = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
+      const isValid = mainCat?.subCategories?.some(s => s.id === this.selectedSubCategoryId);
+      if (!isValid) {
+        this.error = 'Danh mục phụ không hợp lệ cho danh mục chính này';
+        return;
+      }
+    }
+
     this.saving = true;
     this.error = '';
+
     const fd = new FormData();
+
+    // Append all model fields
     Object.keys(this.model).forEach(k => {
-      if (this.model[k] !== null && this.model[k] !== undefined) {
-        fd.append(k, this.model[k]);
+      const val = (this.model as any)[k];
+      if (val !== null && val !== undefined && val !== '') {
+        fd.append(k, String(val));
       }
     });
-    if (this.selectedFile) fd.append('image', this.selectedFile);
+
+    // Append category IDs (prioritize subcategory)
+    if (this.selectedSubCategoryId) {
+      fd.append('subCategoryId', String(this.selectedSubCategoryId));
+      fd.append('mainCategoryId', String(this.selectedMainCategoryId));
+    } else {
+      fd.append('mainCategoryId', String(this.selectedMainCategoryId));
+    }
+
+    if (this.selectedFile) {
+      fd.append('image', this.selectedFile);
+    }
 
     const id = this.route.snapshot.paramMap.get('id');
     const obs = id
