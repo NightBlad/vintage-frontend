@@ -25,7 +25,7 @@ import { CartService } from '../../services/cart.service';
 
     <!-- Main Header -->
     <div class="main-header">
-      <nav class="navbar navbar-expand-lg">
+      <nav class="navbar navbar-expand-xl navbar-light">
         <div class="container">
           <a class="navbar-brand" routerLink="/">
             <i class="fas fa-heartbeat me-2"></i>Vintage
@@ -36,7 +36,7 @@ import { CartService } from '../../services/cart.service';
           </button>
 
           <div class="collapse navbar-collapse" id="navbarMain">
-            <ul class="navbar-nav me-auto">
+            <ul class="navbar-nav me-auto header-nav">
               <li class="nav-item"><a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Trang chủ</a></li>
               <li class="nav-item"><a class="nav-link" routerLink="/products" routerLinkActive="active">Sản phẩm</a></li>
               <li class="nav-item"><a class="nav-link" routerLink="/categories" routerLinkActive="active">Danh mục</a></li>
@@ -46,7 +46,7 @@ import { CartService } from '../../services/cart.service';
             </ul>
 
             <!-- Search -->
-            <form class="d-flex me-3" (ngSubmit)="onSearch()">
+            <form class="header-search d-flex me-3" (ngSubmit)="onSearch()">
               <div class="position-relative">
                 <input class="search-input" type="search" placeholder="Tìm sản phẩm..." [(ngModel)]="searchQuery" name="search">
                 <button type="submit" class="btn btn-link position-absolute end-0 top-50 translate-middle-y pe-2">
@@ -55,38 +55,41 @@ import { CartService } from '../../services/cart.service';
               </div>
             </form>
 
-            <!-- Cart -->
-            <a routerLink="/cart" class="btn btn-outline-primary me-2 position-relative" *ngIf="authService.isLoggedIn">
-              <i class="fas fa-shopping-cart"></i>
-              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                    *ngIf="(cartService.cartCount$ | async)! > 0">
-                {{ cartService.cartCount$ | async }}
-              </span>
-            </a>
-
-            <!-- Not logged in -->
-            <ng-container *ngIf="!authService.isLoggedIn">
-              <a routerLink="/login" class="btn btn-outline-primary me-2">
-                <i class="fas fa-sign-in-alt me-1"></i>Đăng nhập
+            <div class="header-actions">
+              <!-- Cart -->
+              <a routerLink="/cart" class="btn btn-outline-primary position-relative" *ngIf="authService.isLoggedIn">
+                <i class="fas fa-shopping-cart"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                      *ngIf="(cartService.cartCount$ | async)! > 0">
+                  {{ cartService.cartCount$ | async }}
+                </span>
               </a>
-              <a routerLink="/register" class="btn btn-primary">
-                <i class="fas fa-user-plus me-1"></i>Đăng ký
-              </a>
-            </ng-container>
 
-            <!-- Logged in dropdown -->
-            <div class="dropdown" *ngIf="authService.isLoggedIn">
-              <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                <i class="fas fa-user me-1"></i>{{ authService.currentUser?.fullName || authService.currentUser?.username }}
-              </button>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" routerLink="/account/profile"><i class="fas fa-user me-2"></i>Tài khoản</a></li>
-                <li><a class="dropdown-item" routerLink="/account/orders"><i class="fas fa-box me-2"></i>Đơn hàng</a></li>
-                <li *ngIf="authService.isAdmin"><hr class="dropdown-divider"></li>
-                <li *ngIf="authService.isAdmin"><a class="dropdown-item text-primary" routerLink="/admin"><i class="fas fa-cog me-2"></i>Quản trị</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" (click)="logout()" style="cursor:pointer"><i class="fas fa-sign-out-alt me-2"></i>Đăng xuất</a></li>
-              </ul>
+              <!-- Not logged in -->
+              <div class="d-flex align-items-center gap-2" *ngIf="!authService.isLoggedIn">
+                <a routerLink="/login" class="btn btn-outline-primary">
+                  <i class="fas fa-sign-in-alt me-1"></i>Đăng nhập
+                </a>
+                <a routerLink="/register" class="btn btn-primary">
+                  <i class="fas fa-user-plus me-1"></i>Đăng ký
+                </a>
+              </div>
+
+              <!-- Logged in dropdown -->
+              <div class="dropdown header-user-dropdown" *ngIf="authService.isLoggedIn">
+                <button class="btn btn-outline-primary dropdown-toggle user-menu-toggle" type="button" data-bs-toggle="dropdown">
+                  <i class="fas fa-user me-1"></i>
+                  <span class="user-menu-name">{{ authService.currentUser?.fullName || authService.currentUser?.username }}</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><a class="dropdown-item" routerLink="/account/profile"><i class="fas fa-user me-2"></i>Tài khoản</a></li>
+                  <li><a class="dropdown-item" routerLink="/account/orders"><i class="fas fa-box me-2"></i>Đơn hàng</a></li>
+                  <li *ngIf="authService.isAdmin"><hr class="dropdown-divider"></li>
+                  <li *ngIf="authService.isAdmin"><a class="dropdown-item text-primary" routerLink="/admin"><i class="fas fa-cog me-2"></i>Quản trị</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item text-danger" (click)="logout()" style="cursor:pointer"><i class="fas fa-sign-out-alt me-2"></i>Đăng xuất</a></li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
