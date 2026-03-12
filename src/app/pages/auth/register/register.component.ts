@@ -19,6 +19,11 @@ import { AuthService } from '../../../services/auth.service';
                 <p class="mb-0">Đăng ký tài khoản mới</p>
               </div>
               <div class="auth-body">
+                <div class="mb-3">
+                  <a routerLink="/" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-2"></i>Về trang chủ
+                  </a>
+                </div>
                 <div class="alert alert-danger" *ngIf="error"><i class="fas fa-exclamation-triangle me-2"></i>{{ error }}</div>
                 <div class="alert alert-success" *ngIf="success"><i class="fas fa-check-circle me-2"></i>{{ success }}</div>
                 <form (ngSubmit)="onRegister()" #f="ngForm">
