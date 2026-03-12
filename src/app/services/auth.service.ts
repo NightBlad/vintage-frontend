@@ -52,7 +52,8 @@ export class AuthService {
   }
 
   get isAdmin(): boolean {
-    return this.currentUser?.roles?.includes('ROLE_ADMIN') ?? false;
+    const roles = this.currentUser?.roles ?? [];
+    return roles.includes('ROLE_ADMIN') || roles.includes('ADMIN');
   }
 
   get isUser(): boolean {

@@ -22,7 +22,7 @@ export const routes: Routes = [
   { path: 'account/orders/:id', canActivate: [authGuard], loadComponent: () => import('./pages/account/order-detail/order-detail.component').then(m => m.OrderDetailComponent) },
   { path: 'account/change-password', canActivate: [authGuard], loadComponent: () => import('./pages/account/change-password/change-password.component').then(m => m.ChangePasswordComponent) },
 
-  { path: 'admin', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/dashboard/dashboard.component').then(m => m.DashboardComponent) },
+  { path: 'admin', pathMatch: 'full', redirectTo: 'admin/dashboard' },
   { path: 'admin/dashboard', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/dashboard/dashboard.component').then(m => m.DashboardComponent) },
   { path: 'admin/products', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/products/admin-products.component').then(m => m.AdminProductsComponent) },
   { path: 'admin/products/add', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/products/product-form.component').then(m => m.ProductFormComponent) },
