@@ -1,11 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
-import { CartSummary } from '../../models/models';
+import { CartItem, CartResponse } from '../../models/models';
 import { resolveProductImageUrl } from '../../utils/product-image.util';
 @Component({
   selector: 'app-cart',
@@ -15,14 +15,12 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
     <app-layout>
       <div class="container my-5">
         <h2 class="fw-bold mb-3"><i class="fas fa-shopping-cart me-2 text-primary"></i>Giỏ hàng của bạn</h2>
-        <div class="alert alert-success" *ngIf="successMsg">{{ successMsg }}</div>
-        <div class="alert alert-danger" *ngIf="errorMsg">{{ errorMsg }}</div>
         <div class="text-center py-5" *ngIf="loading"><div class="spinner-border text-primary"></div></div>
         <ng-container *ngIf="!loading">
-          <div class="row" *ngIf="cart && cart.items.length">
+          <div class="row" *ngIf="!isCartEmpty">
             <div class="col-lg-8">
               <div class="card shadow-sm">
-                <div class="card-header"><h5 class="mb-0">Sản phẩm ({{ cart.totalItems }})</h5></div>
+                <div class="card-header"><h5 class="mb-0">Sản phẩm ({{ displayTotalItems }})</h5></div>
                 <div class="card-body p-0">
                   <div class="table-responsive">
                     <table class="table align-middle mb-0">
@@ -36,13 +34,13 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
                         </tr>
                       </thead>
                       <tbody>
-                        <tr *ngFor="let item of cart.items">
+                        <tr *ngFor="let item of cartItems">
                           <td>
                             <div class="d-flex align-items-center gap-2">
-                              <img *ngIf="item.product.imageUrl" [src]="getImageUrl(item.product.imageUrl)" width="50" height="50" style="object-fit:cover;border-radius:6px" alt="">
+                              <img *ngIf="item.imageUrl" [src]="getImageUrl(item.imageUrl)" width="50" height="50" style="object-fit:cover;border-radius:6px" alt="">
                               <div>
-                                <div class="fw-medium">{{ item.product.name }}</div>
-                                <small class="text-muted">{{ item.product.productCode }}</small>
+                                <div class="fw-medium">{{ item.productName }}</div>
+                                <small class="text-muted">#{{ item.productId }}</small>
                               </div>
                             </div>
                           </td>
@@ -50,26 +48,26 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
                             <div class="input-group input-group-sm" style="width:100px">
                               <button
                                 class="btn btn-outline-secondary"
-                                (click)="updateQty(item.product.id, item.quantity - 1)"
-                                [disabled]="item.quantity <= 1 || isUpdating(item.product.id)">
+                                (click)="updateQty(item.productId, item.quantity - 1)"
+                                [disabled]="item.quantity <= 1 || isUpdating(item.productId) || isCartMutating">
                                 <i class="fas fa-minus"></i>
                               </button>
                               <input type="text" class="form-control text-center" [value]="item.quantity" readonly aria-label="So luong">
                               <button
                                 class="btn btn-outline-secondary"
-                                (click)="updateQty(item.product.id, item.quantity + 1)"
-                                [disabled]="item.quantity >= item.product.stockQuantity || isUpdating(item.product.id)">
+                                (click)="updateQty(item.productId, item.quantity + 1)"
+                                [disabled]="item.quantity >= item.stockQuantity || isUpdating(item.productId) || isCartMutating">
                                 <i class="fas fa-plus"></i>
                               </button>
                             </div>
                           </td>
-                          <td class="text-end">{{ (item.product.salePrice && item.product.salePrice > 0 ? item.product.salePrice : item.product.price) | number:'1.0-0' }} đ</td>
-                          <td class="text-end fw-bold text-primary">{{ item.subtotal | number:'1.0-0' }} đ</td>
+                          <td class="text-end">{{ item.price | currency:'VND':'symbol':'1.0-0':'vi' }}</td>
+                          <td class="text-end fw-bold text-primary">{{ item.subtotal | currency:'VND':'symbol':'1.0-0':'vi' }}</td>
                           <td>
                             <button
                               class="btn btn-outline-danger btn-sm"
-                              (click)="removeItem(item.product.id)"
-                              [disabled]="isUpdating(item.product.id)">
+                              (click)="removeItem(item.productId)"
+                              [disabled]="isUpdating(item.productId) || isCartMutating">
                               <i class="fas fa-trash"></i>
                             </button>
                           </td>
@@ -84,16 +82,24 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
               <div class="card shadow-sm">
                 <div class="card-header"><h5 class="mb-0">Tóm tắt</h5></div>
                 <div class="card-body">
-                  <div class="d-flex justify-content-between mb-2"><span>Tổng ({{ cart.totalItems }} sp):</span><span>{{ cart.totalAmount | number:'1.0-0' }} đ</span></div>
+                  <div class="d-flex justify-content-between mb-2">
+                    <span>Tổng ({{ displayTotalItems }} sp):</span>
+                    <span>{{ displayTotalAmount | currency:'VND':'symbol':'1.0-0':'vi' }}</span>
+                  </div>
                   <hr>
-                  <div class="d-flex justify-content-between fw-bold h5"><span>Tổng cộng:</span><span class="text-primary">{{ cart.totalAmount | number:'1.0-0' }} đ</span></div>
-                  <a routerLink="/checkout" class="btn btn-primary w-100 mt-3"><i class="fas fa-credit-card me-2"></i>Thanh toán</a>
+                  <div class="d-flex justify-content-between fw-bold h5">
+                    <span>Tổng cộng:</span>
+                    <span class="text-primary">{{ displayTotalAmount | currency:'VND':'symbol':'1.0-0':'vi' }}</span>
+                  </div>
+                  <a routerLink="/checkout" class="btn btn-primary w-100 mt-3" [class.disabled]="isCartMutating" [attr.aria-disabled]="isCartMutating">
+                    <i class="fas fa-credit-card me-2"></i>Thanh toán
+                  </a>
                   <a routerLink="/products" class="btn btn-outline-secondary w-100 mt-2"><i class="fas fa-arrow-left me-2"></i>Tiếp tục mua sắm</a>
                 </div>
               </div>
             </div>
           </div>
-          <div class="text-center py-5" *ngIf="!cart || !cart.items.length">
+          <div class="text-center py-5" *ngIf="isCartEmpty">
             <i class="fas fa-shopping-cart fa-3x text-muted mb-3 d-block"></i>
             <h4 class="text-muted">Giỏ hàng trống</h4>
             <a routerLink="/products" class="btn btn-primary mt-3">Bắt đầu mua sắm</a>
@@ -104,19 +110,38 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
   `
 })
 export class CartComponent implements OnInit {
-  cart: CartSummary | null = null;
+  cart: CartResponse | null = null;
   loading = true;
-  successMsg = '';
-  errorMsg = '';
   private readonly updatingItems = new Set<number>();
   constructor(private cartService: CartService, public authService: AuthService) {}
   ngOnInit(): void {
     this.loadCart();
   }
+  get cartItems(): CartItem[] {
+    return this.cart?.items ?? [];
+  }
+  get displayTotalItems(): number {
+    if (typeof this.cart?.totalItems === 'number' && Number.isFinite(this.cart.totalItems)) {
+      return this.cart.totalItems;
+    }
+    return this.cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  }
+  get displayTotalAmount(): number {
+    if (typeof this.cart?.totalAmount === 'number' && Number.isFinite(this.cart.totalAmount)) {
+      return this.cart.totalAmount;
+    }
+    return this.cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+  }
+  get isCartEmpty(): boolean {
+    return this.cartItems.length === 0;
+  }
+  get isCartMutating(): boolean {
+    return this.updatingItems.size > 0;
+  }
   loadCart(): void {
     this.loading = true;
     this.cartService.getCart().subscribe({
-      next: (c: CartSummary) => {
+      next: (c: CartResponse) => {
         this.cart = c;
         this.loading = false;
       },
@@ -126,38 +151,38 @@ export class CartComponent implements OnInit {
     });
   }
   updateQty(productId: number, qty: number): void {
-    if (qty < 1 || this.isUpdating(productId)) return;
-    this.errorMsg = '';
-    this.updatingItems.add(productId);
+    if (qty < 1 || this.isUpdating(productId) || this.isCartMutating) {
+      return;
+    }
+    const previousCart = this.cart;
+    this.startMutation(productId);
     this.cartService.updateItem(productId, qty).subscribe({
-      next: (c: CartSummary) => {
+      next: (c: CartResponse) => {
         this.cart = c;
-        this.successMsg = 'Đã cập nhật số lượng!';
-        setTimeout(() => (this.successMsg = ''), 2000);
       },
-      error: (err: any) => {
-        this.errorMsg = err.error?.message || 'Có lỗi xảy ra';
+      error: () => {
+        this.cart = previousCart;
       },
       complete: () => {
-        this.updatingItems.delete(productId);
+        this.finishMutation(productId);
       }
     });
   }
   removeItem(productId: number): void {
-    if (this.isUpdating(productId)) return;
-    this.errorMsg = '';
-    this.updatingItems.add(productId);
+    if (this.isUpdating(productId) || this.isCartMutating) {
+      return;
+    }
+    const previousCart = this.cart;
+    this.startMutation(productId);
     this.cartService.removeItem(productId).subscribe({
-      next: (c: CartSummary) => {
+      next: (c: CartResponse) => {
         this.cart = c;
-        this.successMsg = 'Đã xóa sản phẩm!';
-        setTimeout(() => (this.successMsg = ''), 2000);
       },
-      error: (err: any) => {
-        this.errorMsg = err.error?.message || 'Có lỗi xảy ra';
+      error: () => {
+        this.cart = previousCart;
       },
       complete: () => {
-        this.updatingItems.delete(productId);
+        this.finishMutation(productId);
       }
     });
   }
@@ -166,5 +191,11 @@ export class CartComponent implements OnInit {
   }
   getImageUrl(url: string): string {
     return resolveProductImageUrl(url);
+  }
+  private startMutation(productId: number): void {
+    this.updatingItems.add(productId);
+  }
+  private finishMutation(productId: number): void {
+    this.updatingItems.delete(productId);
   }
 }

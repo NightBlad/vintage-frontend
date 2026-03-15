@@ -81,7 +81,7 @@ import { CartSummary } from '../../models/models';
                 <div class="card-body">
                   <div class="mb-3" *ngFor="let item of cart.items">
                     <div class="d-flex justify-content-between">
-                      <span class="text-truncate me-2">{{ item.product.name }} x{{ item.quantity }}</span>
+                      <span class="text-truncate me-2">{{ item.productName }} x{{ item.quantity }}</span>
                       <span class="text-nowrap">{{ item.subtotal | number:'1.0-0' }} VNĐ</span>
                     </div>
                   </div>
@@ -133,7 +133,8 @@ export class CheckoutComponent implements OnInit {
     this.orderService.placeOrder(this.form).subscribe({
       next: (order: any) => {
         this.submitting = false;
-        this.router.navigate(['/account/orders', order.id]);
+        const orderId = order?.id ?? order?.orderId;
+        this.router.navigate(orderId ? ['/account/orders', orderId] : ['/account/orders']);
       },
       error: (err: any) => {
         this.submitting = false;

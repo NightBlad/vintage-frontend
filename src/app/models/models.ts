@@ -52,9 +52,14 @@ export interface Page<T> {
 }
 
 export interface CartItem {
-  product: Product;
+  productId: number;
+  productName: string;
+  imageUrl?: string | null;
+  price: number;
+  originalPrice?: number;
   quantity: number;
   subtotal: number;
+  stockQuantity: number;
 }
 
 export interface CartSummary {
@@ -62,6 +67,7 @@ export interface CartSummary {
   totalItems: number;
   totalAmount: number;
 }
+export type CartResponse = CartSummary;
 
 export interface OrderItem {
   id: number;
