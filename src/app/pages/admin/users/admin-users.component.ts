@@ -52,22 +52,25 @@ import { User, Page } from '../../../models/models';
                       </span>
                     </td>
                     <td class="text-center">
-                      <span class="badge" [ngClass]="u.accountLocked ? 'bg-danger' : (u.enabled ? 'bg-success' : 'bg-secondary')">
-                        {{ u.accountLocked ? 'Bị khóa' : (u.enabled ? 'Hoạt động' : 'Vô hiệu') }}
+                      <span class="badge" [ngClass]="u.accountLocked ? 'bg-danger' : 'bg-success'">
+                        <i class="fas" [class]="u.accountLocked ? 'fa-user-lock' : 'fa-check-circle'"></i>
+                        {{ u.accountLocked ? ' Bị khóa' : ' Hoạt động' }}
                       </span>
                     </td>
                     <td class="text-center">
                       <button class="btn btn-sm me-1"
-                        [ngClass]="u.accountLocked ? 'btn-success' : 'btn-warning'"
-                        (click)="toggleLock(u)"
-                        [title]="u.accountLocked ? 'Mở khóa' : 'Khóa tài khoản'">
+                              [ngClass]="u.accountLocked ? 'btn-success' : 'btn-warning'"
+                              (click)="toggleLock(u)"
+                              [title]="u.accountLocked ? 'Mở khóa' : 'Khóa tài khoản'">
                         <i class="fas" [class]="u.accountLocked ? 'fa-lock-open' : 'fa-lock'"></i>
                       </button>
+
                       <button class="btn btn-sm btn-outline-secondary me-1"
-                        (click)="toggleRole(u)"
-                        [title]="isAdmin(u) ? 'Xóa quyền Admin' : 'Cấp quyền Admin'">
-                        <i class="fas fa-user-shield"></i>
+                              (click)="toggleRole(u)"
+                              [title]="isAdmin(u) ? 'Hủy quyền Admin' : 'Cấp quyền Admin'">
+                        <i class="fas fa-user-shield" [class.text-danger]="isAdmin(u)"></i>
                       </button>
+
                       <button class="btn btn-sm btn-danger" (click)="deleteUser(u)" title="Xóa">
                         <i class="fas fa-trash"></i>
                       </button>
@@ -118,26 +121,37 @@ export class AdminUsersComponent implements OnInit {
     this.loading = true;
     this.currentPage = p;
     this.adminService.getUsers(p, 10).subscribe({
-      next: data => { this.page = data; this.loading = false; },
-      error: () => { this.error = 'Tải danh sách người dùng thất bại'; this.loading = false; }
+      next: data => {
+        this.page = data;
+        this.loading = false; },
+      error: () => {
+        this.error = 'Tải danh sách người dùng thất bại';
+        this.loading = false; }
     });
   }
 
-  isAdmin(u: User): boolean {
-    return u.roles.includes('ROLE_ADMIN');
+  isAdmin(u: any): boolean {
+    return u?.roles?.includes('ROLE_ADMIN') || false;
   }
 
   toggleLock(u: User): void {
     const action = u.accountLocked ? 'mở khóa' : 'khóa';
     if (!confirm(`Bạn có chắc muốn ${action} tài khoản "${u.username}"?`)) return;
+
     this.adminService.toggleLock(u.id).subscribe({
-      next: updated => {
-        if (this.page) {
+      next: (updatedUser: any) => {
+        // Cập nhật lại user trong danh sách hiện tại
+        if (this.page && this.page.content) {
           const idx = this.page.content.findIndex(x => x.id === u.id);
-          if (idx !== -1) this.page.content[idx] = updated;
+          if (idx !== -1) {
+            this.page.content[idx] = updatedUser;
+          }
         }
       },
-      error: () => alert('Thao tác thất bại!')
+      error: (err) => {
+        console.error(err);
+        alert('Thao tác khóa/mở khóa thất bại! Vui lòng kiểm tra lại Backend.');
+      }
     });
   }
 
@@ -145,22 +159,30 @@ export class AdminUsersComponent implements OnInit {
     const role = 'ROLE_ADMIN';
     const action = this.isAdmin(u) ? 'xóa quyền Admin' : 'cấp quyền Admin';
     if (!confirm(`Bạn có chắc muốn ${action} cho "${u.username}"?`)) return;
+
     this.adminService.toggleRole(u.id, role).subscribe({
-      next: updated => {
-        if (this.page) {
+      next: (updatedUser: any) => {
+        if (this.page && this.page.content) {
           const idx = this.page.content.findIndex(x => x.id === u.id);
-          if (idx !== -1) this.page.content[idx] = updated;
+          if (idx !== -1) {
+            this.page.content[idx] = updatedUser;
+          }
         }
       },
-      error: () => alert('Thao tác thất bại!')
+      error: () => alert('Không thể cập nhật quyền hạn!')
     });
   }
 
   deleteUser(u: User): void {
-    if (!confirm(`Xóa tài khoản "${u.username}"? Hành động này không thể hoàn tác.`)) return;
+    if (this.isAdmin(u)) {
+      alert('Không thể xóa tài khoản Quản trị viên!');
+      return;
+    }
+    if (!confirm(`Xóa tài khoản "${u.username}"?`)) return;
+
     this.adminService.deleteUser(u.id).subscribe({
       next: () => this.loadPage(this.currentPage),
-      error: () => alert('Không thể xóa người dùng này!')
+      error: () => alert('Lỗi khi xóa người dùng!')
     });
   }
 
