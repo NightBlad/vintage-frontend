@@ -7,7 +7,7 @@ import { ProductService } from '../../services/product.service';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { Product } from '../../models/models';
-import { environment } from '../../../environments/environment';
+import { resolveProductImageUrl } from '../../utils/product-image.util';
 
 @Component({
   selector: 'app-product-detail',
@@ -85,7 +85,7 @@ import { environment } from '../../../environments/environment';
             <div class="d-flex align-items-center gap-3 mb-4" *ngIf="authService.isLoggedIn">
               <div class="input-group" style="width:130px">
                 <button class="btn btn-outline-secondary" (click)="decQty()"><i class="fas fa-minus"></i></button>
-                <input type="number" class="form-control text-center" [(ngModel)]="qty" min="1" [max]="product.stockQuantity">
+                <input type="number" class="form-control text-center quantity-input" [(ngModel)]="qty" min="1" [max]="product.stockQuantity">
                 <button class="btn btn-outline-secondary" (click)="incQty()"><i class="fas fa-plus"></i></button>
               </div>
               <button class="btn btn-primary btn-lg" [disabled]="product.stockQuantity <= 0" (click)="addToCart()">
@@ -171,7 +171,7 @@ export class ProductDetailComponent implements OnInit {
   }
 
   getImageUrl(url: string): string {
-    return url.startsWith('http') ? url : `${environment.apiUrl.replace('/api/v1', '')}${url}`;
+    return resolveProductImageUrl(url);
   }
 
   addToCart(): void {

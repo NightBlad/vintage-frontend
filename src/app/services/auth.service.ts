@@ -2,7 +2,11 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
-import { AuthResponse, LoginRequest, RegisterRequest } from '../models/models';
+import {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest
+} from '../models/models';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -31,6 +35,7 @@ export class AuthService {
   register(req: RegisterRequest): Observable<any> {
     return this.http.post(`${this.apiUrl}/register`, req);
   }
+
 
   logout(): void {
     localStorage.removeItem('currentUser');

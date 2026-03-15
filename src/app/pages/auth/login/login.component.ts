@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
+import { resolveAuthErrorMessage } from '../../../utils/auth-error.util';
 
 @Component({
   selector: 'app-login',
@@ -78,7 +79,7 @@ export class LoginComponent {
       },
       error: err => {
         this.loading = false;
-        this.error = err.error?.message || 'Tên đăng nhập hoặc mật khẩu không đúng!';
+        this.error = resolveAuthErrorMessage(err, 'Tên đăng nhập hoặc mật khẩu không đúng!');
       }
     });
   }

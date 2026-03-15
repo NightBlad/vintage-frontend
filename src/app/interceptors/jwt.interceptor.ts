@@ -9,7 +9,9 @@ export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
   }
 
   // Do not attach bearer token to public auth endpoints.
-  const isPublicAuthEndpoint = req.url.includes('/auth/login') || req.url.includes('/auth/register');
+  const isPublicAuthEndpoint =
+    req.url.includes('/auth/login') ||
+    req.url.includes('/auth/register');
   if (isPublicAuthEndpoint) {
     return next(req);
   }

@@ -55,11 +55,25 @@ export class ChangePasswordComponent {
   constructor(private accountService: AccountService) {}
 
   submit(): void {
-    if (this.form.newPass !== this.form.confirm) { this.error = 'Mật khẩu xác nhận không khớp!'; return; }
+    this.error = '';
+    this.success = '';
+
+    if (this.form.newPass !== this.form.confirm) {
+      this.error = 'Mật khẩu xác nhận không khớp!';
+      return;
+    }
+
     this.saving = true;
     this.accountService.changePassword(this.form.current, this.form.newPass, this.form.confirm).subscribe({
-      next: () => { this.saving = false; this.success = 'Đổi mật khẩu thành công!'; this.form = { current: '', newPass: '', confirm: '' }; },
-      error: err => { this.saving = false; this.error = err.error?.message || 'Có lỗi xảy ra'; }
+      next: response => {
+        this.saving = false;
+        this.success = response.message || 'Đổi mật khẩu thành công!';
+        this.form = { current: '', newPass: '', confirm: '' };
+      },
+      error: err => {
+        this.saving = false;
+        this.error = err.error?.message || 'Đổi mật khẩu thất bại.';
+      }
     });
   }
 }

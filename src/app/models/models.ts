@@ -128,6 +128,7 @@ export interface RegisterRequest {
   address?: string;
 }
 
+
 export interface CheckoutRequest {
   fullName: string;
   phone: string;

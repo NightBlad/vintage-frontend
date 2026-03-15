@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { ProductService } from '../../../services/product.service';
 import { Product, Page } from '../../../models/models';
-import { environment } from '../../../../environments/environment';
+import { resolveProductImageUrl } from '../../../utils/product-image.util';
 
 @Component({
   selector: 'app-admin-products',
@@ -146,8 +146,7 @@ export class AdminProductsComponent implements OnInit {
   }
 
   getImageUrl(url: string): string {
-    if (url.startsWith('http')) return url;
-    return `${environment.apiUrl.replace('/api', '')}/uploads/products/${url}`;
+    return resolveProductImageUrl(url);
   }
 }
 

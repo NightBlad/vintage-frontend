@@ -1,14 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ProductService } from '../../services/product.service';
 import { CategoryService } from '../../services/category.service';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { Product, Category } from '../../models/models';
-import { environment } from '../../../environments/environment';
-
+import { resolveProductImageUrl } from '../../utils/product-image.util';
 @Component({
   selector: 'app-home',
   standalone: true,
@@ -39,7 +38,6 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
       </section>
-
       <!-- Features -->
       <section class="py-5">
         <div class="container">
@@ -78,7 +76,6 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
       </section>
-
       <!-- Featured Products -->
       <section class="py-5 bg-light">
         <div class="container">
@@ -86,10 +83,15 @@ import { environment } from '../../../environments/environment';
             <h2 class="display-5 fw-bold text-primary"><i class="fas fa-fire me-2"></i>Sản phẩm nổi bật</h2>
             <p class="lead text-muted">Những sản phẩm được khách hàng tin tưởng và lựa chọn nhiều nhất</p>
           </div>
-
           <div class="row g-4" *ngIf="featuredProducts.length > 0">
             <div class="col-lg-3 col-md-6" *ngFor="let product of featuredProducts">
-              <div class="card product-card h-100 shadow-sm">
+              <div
+                class="card product-card h-100 shadow-sm"
+                role="button"
+                tabindex="0"
+                (click)="viewProduct(product.id)"
+                (keydown.enter)="viewProduct(product.id)"
+                (keydown.space)="viewProduct(product.id); $event.preventDefault()">
                 <div class="position-relative">
                   <div class="product-image">
                     <img *ngIf="product.imageUrl" [src]="getImageUrl(product.imageUrl)" [alt]="product.name">
@@ -113,22 +115,17 @@ import { environment } from '../../../environments/environment';
                   </div>
                   <div class="d-flex justify-content-between align-items-center mt-3">
                     <small class="text-muted"><i class="fas fa-boxes me-1"></i>Còn {{ product.stockQuantity }}</small>
-                    <div class="btn-group">
-                      <a [routerLink]="['/products', product.id]" class="btn btn-primary btn-sm action-btn">
-                        <i class="fas fa-eye"></i>
-                      </a>
-                      <button class="btn btn-outline-primary btn-sm action-btn"
-                              (click)="addToCart(product)"
-                              [disabled]="product.stockQuantity <= 0">
-                        <i class="fas fa-cart-plus"></i>
-                      </button>
-                    </div>
+                    <button
+                      class="btn btn-outline-primary btn-sm action-btn"
+                      (click)="addToCart(product, $event)"
+                      [disabled]="product.stockQuantity <= 0">
+                      <i class="fas fa-cart-plus me-1"></i>Thêm giỏ
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
           <div class="text-center mt-4">
             <a routerLink="/products" class="btn btn-primary btn-lg rounded-pill px-5">
               <i class="fas fa-th me-2"></i>Xem tất cả sản phẩm
@@ -136,7 +133,6 @@ import { environment } from '../../../environments/environment';
           </div>
         </div>
       </section>
-
       <!-- Categories -->
       <section class="py-5" *ngIf="categories.length > 0">
         <div class="container">
@@ -145,7 +141,7 @@ import { environment } from '../../../environments/environment';
           </div>
           <div class="row g-3 justify-content-center">
             <div class="col-md-2 col-6" *ngFor="let cat of categories">
-              <a [routerLink]="['/products']" [queryParams]="{categoryId: cat.id}" class="category-card d-block">
+              <a [routerLink]="['/products']" [queryParams]="{mainCategoryId: cat.id}" class="category-card d-block">
                 <i class="fas fa-pills text-primary fa-2x mb-2"></i>
                 <div class="fw-medium">{{ cat.name }}</div>
               </a>
@@ -159,27 +155,26 @@ import { environment } from '../../../environments/environment';
 export class HomeComponent implements OnInit {
   featuredProducts: Product[] = [];
   categories: Category[] = [];
-
   constructor(
     private productService: ProductService,
     private categoryService: CategoryService,
     private cartService: CartService,
-    public authService: AuthService
+    public authService: AuthService,
+    private router: Router
   ) {}
-
   ngOnInit(): void {
     this.productService.getFeatured().subscribe(p => this.featuredProducts = p);
     this.categoryService.getAll().subscribe(c => this.categories = c);
   }
-
   getImageUrl(url: string): string {
-    if (!url) return '';
-    return url.startsWith('http') ? url : `${environment.apiUrl.replace('/api/v1', '')}${url}`;
+    return resolveProductImageUrl(url);
   }
-
-  addToCart(product: Product): void {
-    if (!this.authService.isLoggedIn) { window.location.href = '/login'; return; }
+  viewProduct(productId: number): void {
+    this.router.navigate(['/products', productId]);
+  }
+  addToCart(product: Product, event?: Event): void {
+    event?.stopPropagation();
+    if (!this.authService.isLoggedIn) { this.router.navigate(['/login']); return; }
     this.cartService.addItem(product.id).subscribe();
   }
 }
-
