@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { ProductService } from '../../../services/product.service';
 import { Product, Page } from '../../../models/models';
-import { resolveProductImageUrl } from '../../../utils/product-image.util';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/product-image.util';
 
 @Component({
   selector: 'app-admin-products',
@@ -49,10 +49,7 @@ import { resolveProductImageUrl } from '../../../utils/product-image.util';
                 <tbody>
                   <tr *ngFor="let p of page?.content">
                     <td>
-                      <img *ngIf="p.imageUrl" [src]="getImageUrl(p.imageUrl)" class="rounded" width="45" height="45" style="object-fit:cover" alt="">
-                      <div *ngIf="!p.imageUrl" class="bg-light rounded d-flex align-items-center justify-content-center" style="width:45px;height:45px">
-                        <i class="fas fa-pills text-muted"></i>
-                      </div>
+                      <img [src]="getImageUrl(p.imageUrl)" class="rounded" width="45" height="45" style="object-fit:cover" alt="" (error)="onImageError($event)">
                     </td>
                     <td>
                       <div class="fw-medium">{{ p.name }}</div>
@@ -113,6 +110,7 @@ import { resolveProductImageUrl } from '../../../utils/product-image.util';
   `
 })
 export class AdminProductsComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   page: Page<Product> | null = null;
   loading = true;
   currentPage = 0;
@@ -145,8 +143,13 @@ export class AdminProductsComponent implements OnInit {
     return Array.from({ length: this.page.totalPages }, (_, i) => i);
   }
 
-  getImageUrl(url: string): string {
-    return resolveProductImageUrl(url);
+  getImageUrl(url: string | null | undefined): string {
+    return resolveImageUrl(url);
+  }
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
 }
 

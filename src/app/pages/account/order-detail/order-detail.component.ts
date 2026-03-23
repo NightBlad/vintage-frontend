@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { LayoutComponent } from '../../../components/layout/layout.component';
 import { OrderService } from '../../../services/order.service';
-import { Order } from '../../../models/models';
+import { Order, OrderItem } from '../../../models/models';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/product-image.util';
 
 @Component({
   selector: 'app-order-detail',
@@ -31,10 +32,13 @@ import { Order } from '../../../models/models';
               <div class="table-responsive">
                 <table class="table mb-0">
                   <thead class="table-light">
-                    <tr><th>Sản phẩm</th><th class="text-center">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th></tr>
+                    <tr><th width="72">Ảnh</th><th>Sản phẩm</th><th class="text-center">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th></tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let item of order.orderItems">
+                      <td>
+                        <img [src]="getItemImageUrl(item)" width="52" height="52" class="rounded" style="object-fit:cover" alt="" (error)="onImageError($event)">
+                      </td>
                       <td><strong>{{ item.productName }}</strong><br><small class="text-muted">{{ item.productCode }}</small></td>
                       <td class="text-center">{{ item.quantity }}</td>
                       <td class="text-end">{{ item.unitPrice | number:'1.0-0' }} VNĐ</td>
@@ -81,6 +85,7 @@ import { Order } from '../../../models/models';
   `
 })
 export class OrderDetailComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   order: Order | null = null;
   loading = true;
 
@@ -108,5 +113,15 @@ export class OrderDetailComponent implements OnInit {
       DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy'
     };
     return map[s] || s;
+  }
+
+  getItemImageUrl(item: OrderItem): string {
+    return resolveImageUrl(item?.product?.imageUrl ?? null);
+  }
+
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
 }

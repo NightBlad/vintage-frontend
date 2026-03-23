@@ -6,7 +6,8 @@ import { LayoutComponent } from '../../components/layout/layout.component';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { CartItem, CartResponse } from '../../models/models';
-import { resolveProductImageUrl } from '../../utils/product-image.util';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-image.util';
+import { resolveAvailableQuantity } from '../../utils/product-stock.util';
 @Component({
   selector: 'app-cart',
   standalone: true,
@@ -16,6 +17,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
       <div class="container my-5">
         <h2 class="fw-bold mb-3"><i class="fas fa-shopping-cart me-2 text-primary"></i>Giỏ hàng của bạn</h2>
         <div class="text-center py-5" *ngIf="loading"><div class="spinner-border text-primary"></div></div>
+        <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
         <ng-container *ngIf="!loading">
           <div class="row" *ngIf="!isCartEmpty">
             <div class="col-lg-8">
@@ -37,7 +39,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
                         <tr *ngFor="let item of cartItems">
                           <td>
                             <div class="d-flex align-items-center gap-2">
-                              <img *ngIf="item.imageUrl" [src]="getImageUrl(item.imageUrl)" width="50" height="50" style="object-fit:cover;border-radius:6px" alt="">
+                              <img [src]="getImageUrl(item.imageUrl)" width="50" height="50" style="object-fit:cover;border-radius:6px" alt="" (error)="onImageError($event)">
                               <div>
                                 <div class="fw-medium">{{ item.productName }}</div>
                                 <small class="text-muted">#{{ item.productId }}</small>
@@ -56,7 +58,8 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
                               <button
                                 class="btn btn-outline-secondary"
                                 (click)="updateQty(item.productId, item.quantity + 1)"
-                                [disabled]="item.quantity >= item.stockQuantity || isUpdating(item.productId) || isCartMutating">
+                                [disabled]="item.quantity >= getItemStock(item) || isUpdating(item.productId) || isCartMutating"
+                                [title]="item.quantity >= getItemStock(item) ? 'Đã đạt tồn kho hiện tại' : 'Tăng số lượng'">
                                 <i class="fas fa-plus"></i>
                               </button>
                             </div>
@@ -110,8 +113,10 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
   `
 })
 export class CartComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   cart: CartResponse | null = null;
   loading = true;
+  errorMessage: string | null = null;
   private readonly updatingItems = new Set<number>();
   constructor(private cartService: CartService, public authService: AuthService) {}
   ngOnInit(): void {
@@ -146,14 +151,21 @@ export class CartComponent implements OnInit {
         this.loading = false;
       },
       error: () => {
+        this.errorMessage = 'Không thể tải giỏ hàng. Vui lòng thử lại.';
         this.loading = false;
       }
     });
   }
   updateQty(productId: number, qty: number): void {
-    if (qty < 1 || this.isUpdating(productId) || this.isCartMutating) {
+    const item = this.cartItems.find(cartItem => cartItem.productId === productId);
+    const maxQty = this.getItemStock(item);
+    if (qty < 1 || qty > maxQty || this.isUpdating(productId) || this.isCartMutating) {
+      if (qty > maxQty) {
+        this.errorMessage = `So luong vuot qua ton kho hien tai (${maxQty}).`;
+      }
       return;
     }
+    this.errorMessage = null;
     const previousCart = this.cart;
     this.startMutation(productId);
     this.cartService.updateItem(productId, qty).subscribe({
@@ -162,6 +174,7 @@ export class CartComponent implements OnInit {
       },
       error: () => {
         this.cart = previousCart;
+        this.errorMessage = 'Khong the cap nhat gio hang. Vui long thu lai.';
       },
       complete: () => {
         this.finishMutation(productId);
@@ -180,6 +193,7 @@ export class CartComponent implements OnInit {
       },
       error: () => {
         this.cart = previousCart;
+        this.errorMessage = 'Khong the xoa san pham khoi gio hang. Vui long thu lai.';
       },
       complete: () => {
         this.finishMutation(productId);
@@ -189,8 +203,20 @@ export class CartComponent implements OnInit {
   isUpdating(productId: number): boolean {
     return this.updatingItems.has(productId);
   }
-  getImageUrl(url: string): string {
-    return resolveProductImageUrl(url);
+  getImageUrl(url: string | null | undefined): string {
+    return resolveImageUrl(url);
+  }
+  getItemStock(item: CartItem | undefined): number {
+    if (!item) return 0;
+    return resolveAvailableQuantity({
+      availableQuantity: item.availableQuantity,
+      stockQuantity: item.stockQuantity
+    } as any);
+  }
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
   private startMutation(productId: number): void {
     this.updatingItems.add(productId);

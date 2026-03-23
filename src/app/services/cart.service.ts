@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, map, Observable, of, switchMap, tap } from 'rxjs';
 import { CartItem, CartResponse } from '../models/models';
 import { environment } from '../../environments/environment';
+import { resolveAvailableQuantity } from '../utils/product-stock.util';
 @Injectable({ providedIn: 'root' })
 export class CartService {
   private apiUrl = `${environment.apiUrl}/cart`;
@@ -17,6 +18,11 @@ export class CartService {
     const quantity = this.toNumber(item?.quantity);
     const price = this.toNumber(item?.price);
     const subtotal = this.toNumber(item?.subtotal, price * quantity);
+    const stockQuantity = this.toNumber(item?.stockQuantity ?? item?.stockquantity);
+    const availableQuantity = resolveAvailableQuantity({
+      availableQuantity: item?.availableQuantity,
+      stockQuantity
+    } as any);
     return {
       productId: this.toNumber(item?.productId ?? item?.productID),
       productName: (item?.productName ?? '').toString(),
@@ -25,7 +31,8 @@ export class CartService {
       originalPrice: this.toNumber(item?.originalPrice, price),
       quantity,
       subtotal,
-      stockQuantity: this.toNumber(item?.stockQuantity ?? item?.stockquantity)
+      stockQuantity,
+      availableQuantity
     };
   }
   private normalizeCart(payload: any): CartResponse {

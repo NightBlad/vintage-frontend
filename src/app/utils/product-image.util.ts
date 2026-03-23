@@ -1,15 +1,19 @@
 import { environment } from '../../environments/environment';
-const API_SUFFIX_REGEX = /\/api(?:\/v\d+)?$/;
+
+export const PRODUCT_PLACEHOLDER_IMAGE = 'assets/images/placeholder-product.png';
+
+export function resolveImageUrl(raw: string | null | undefined): string {
+  const normalized = raw?.trim() ?? '';
+  if (!normalized) return PRODUCT_PLACEHOLDER_IMAGE;
+  if (/^(https?:\/\/|data:|\/\/)/i.test(normalized)) return normalized;
+
+  const envConfig = environment as { apiBaseOrigin?: string; apiUrl: string };
+  const baseOrigin = (envConfig.apiBaseOrigin || '').trim() || envConfig.apiUrl.replace(/\/api(?:\/v\d+)?$/, '');
+  if (normalized.startsWith('/')) return `${baseOrigin}${normalized}`;
+  return `${baseOrigin}/uploads/${normalized}`;
+}
+
+// Backward-compatible alias for existing imports.
 export function resolveProductImageUrl(url?: string | null): string {
-  if (!url) return '';
-  const raw = url.trim();
-  if (!raw) return '';
-  if (/^https?:\/\//i.test(raw)) return raw;
-  const baseUrl = environment.apiUrl.replace(API_SUFFIX_REGEX, '');
-  // Keep existing relative paths from backend, only prepend host.
-  if (raw.startsWith('/')) return `${baseUrl}${raw}`;
-  if (raw.startsWith('uploads/')) return `${baseUrl}/${raw}`;
-  if (raw.includes('/')) return `${baseUrl}/${raw}`;
-  // Fallback for APIs that return only the image filename.
-  return `${baseUrl}/uploads/products/${raw}`;
+  return resolveImageUrl(url);
 }

@@ -7,7 +7,7 @@ import { CategoryService } from '../../services/category.service';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { Product, Category } from '../../models/models';
-import { resolveProductImageUrl } from '../../utils/product-image.util';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-image.util';
 @Component({
   selector: 'app-home',
   standalone: true,
@@ -94,8 +94,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
                 (keydown.space)="viewProduct(product.id); $event.preventDefault()">
                 <div class="position-relative">
                   <div class="product-image">
-                    <img *ngIf="product.imageUrl" [src]="getImageUrl(product.imageUrl)" [alt]="product.name">
-                    <i *ngIf="!product.imageUrl" class="fas fa-pills"></i>
+                    <img [src]="getImageUrl(product.imageUrl)" [alt]="product.name" (error)="onImageError($event)">
                   </div>
                   <span class="badge bg-warning position-absolute top-0 end-0 m-2">
                     <i class="fas fa-star me-1"></i>Nổi bật
@@ -153,6 +152,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
   `
 })
 export class HomeComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   featuredProducts: Product[] = [];
   categories: Category[] = [];
   constructor(
@@ -166,8 +166,13 @@ export class HomeComponent implements OnInit {
     this.productService.getFeatured().subscribe(p => this.featuredProducts = p);
     this.categoryService.getAll().subscribe(c => this.categories = c);
   }
-  getImageUrl(url: string): string {
-    return resolveProductImageUrl(url);
+  getImageUrl(url: string | null | undefined): string {
+    return resolveImageUrl(url);
+  }
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
   viewProduct(productId: number): void {
     this.router.navigate(['/products', productId]);

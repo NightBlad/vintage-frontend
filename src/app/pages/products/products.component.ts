@@ -7,7 +7,8 @@ import { CategoryService } from '../../services/category.service';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { Product, Category, Page } from '../../models/models';
-import { resolveProductImageUrl } from '../../utils/product-image.util';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-image.util';
+import { resolveAvailableQuantity } from '../../utils/product-stock.util';
 @Component({
   selector: 'app-products',
   standalone: true,
@@ -65,6 +66,9 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
         <div class="text-center py-5" *ngIf="loading">
           <div class="spinner-border text-primary"></div>
         </div>
+        <div *ngIf="message" class="alert" [ngClass]="messageType === 'error' ? 'alert-danger' : 'alert-success'">
+          {{ message }}
+        </div>
         <div class="row" *ngIf="!loading && productsPage?.content?.length">
           <div class="col-lg-3 col-md-4 col-sm-6 mb-4" *ngFor="let product of productsPage!.content">
             <div
@@ -76,8 +80,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
               (keydown.space)="viewProduct(product.id); $event.preventDefault()">
               <div class="position-relative">
                 <div class="product-image">
-                  <img *ngIf="product.imageUrl" [src]="getImageUrl(product.imageUrl)" [alt]="product.name">
-                  <i *ngIf="!product.imageUrl" class="fas fa-pills"></i>
+                  <img [src]="getImageUrl(product.imageUrl)" [alt]="product.name" (error)="onImageError($event)">
                 </div>
                 <span *ngIf="product.featured" class="badge bg-warning position-absolute top-0 end-0 m-2">
                   <i class="fas fa-star me-1"></i>Nổi bật
@@ -104,19 +107,21 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
                   <i class="fas fa-industry me-1"></i>{{ product.manufacturer }}
                 </small>
                 <div class="d-flex justify-content-between align-items-center mt-3">
-                  <small class="text-muted"><i class="fas fa-boxes me-1"></i>Còn {{ product.stockQuantity }}</small>
+                  <small class="text-muted" *ngIf="getAvailableStock(product) > 0"><i class="fas fa-boxes me-1"></i>Còn {{ getAvailableStock(product) }}</small>
+                  <small class="text-danger" *ngIf="getAvailableStock(product) <= 0"><i class="fas fa-times-circle me-1"></i>Hết hàng</small>
                   <button
                     class="btn btn-outline-primary btn-sm action-btn"
                     (click)="addToCart(product, $event)"
-                    [disabled]="product.stockQuantity<=0">
+                    [disabled]="isOutOfStock(product)"
+                    [title]="isOutOfStock(product) ? 'Sản phẩm hiện hết hàng' : 'Thêm vào giỏ hàng'">
                     <i class="fas fa-cart-plus me-1"></i>Thêm giỏ
                   </button>
                 </div>
-                <div class="mt-2" *ngIf="product.stockQuantity <= 0">
+                <div class="mt-2" *ngIf="isOutOfStock(product)">
                   <span class="badge bg-danger w-100"><i class="fas fa-times me-1"></i>Hết hàng</span>
                 </div>
-                <div class="mt-2" *ngIf="product.stockQuantity > 0 && product.stockQuantity <= 10">
-                  <span class="badge bg-warning text-dark w-100"><i class="fas fa-exclamation me-1"></i>Sắp hết</span>
+                <div class="mt-2" *ngIf="!isOutOfStock(product)">
+                  <span class="badge bg-success w-100"><i class="fas fa-check me-1"></i>Còn hàng</span>
                 </div>
               </div>
             </div>
@@ -146,6 +151,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
   `
 })
 export class ProductsComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   productsPage: Page<Product> | null = null;
   mainCategories: Category[] = [];
   subCategories: Category[] = [];
@@ -155,6 +161,8 @@ export class ProductsComponent implements OnInit {
   currentMainCategoryName = '';
   currentSubCategoryName = '';
   loading = true;
+  message: string | null = null;
+  messageType: 'success' | 'error' = 'success';
   constructor(
     private productService: ProductService,
     private categoryService: CategoryService,
@@ -222,15 +230,43 @@ export class ProductsComponent implements OnInit {
     if (!this.productsPage) return [];
     return Array.from({ length: this.productsPage.totalPages }, (_, i) => i);
   }
-  getImageUrl(url: string): string {
-    return resolveProductImageUrl(url);
+  getImageUrl(url: string | null | undefined): string {
+    return resolveImageUrl(url);
+  }
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
   viewProduct(productId: number): void {
     this.router.navigate(['/products', productId]);
   }
+  getAvailableStock(product: Product): number {
+    return resolveAvailableQuantity(product);
+  }
+  isOutOfStock(product: Product): boolean {
+    return this.getAvailableStock(product) <= 0;
+  }
   addToCart(product: Product, event?: Event): void {
     event?.stopPropagation();
     if (!this.authService.isLoggedIn) { this.router.navigate(['/login']); return; }
-    this.cartService.addItem(product.id).subscribe();
+    if (this.isOutOfStock(product)) {
+      this.showMessage('Sản phẩm hiện hết hàng.', 'error');
+      return;
+    }
+    this.cartService.addItem(product.id).subscribe({
+      next: () => this.showMessage('Đã thêm sản phẩm vào giỏ hàng.', 'success'),
+      error: (err) => this.showMessage(this.extractErrorMessage(err, 'Không thể thêm vào giỏ hàng.'), 'error')
+    });
+  }
+  private showMessage(message: string, type: 'success' | 'error'): void {
+    this.message = message;
+    this.messageType = type;
+    setTimeout(() => {
+      this.message = null;
+    }, 3000);
+  }
+  private extractErrorMessage(error: any, fallback: string): string {
+    return error?.error?.message || error?.error?.error || fallback;
   }
 }

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { LayoutComponent } from '../../../components/layout/layout.component';
 import { OrderService } from '../../../services/order.service';
 import { Order, Page } from '../../../models/models';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/product-image.util';
 
 @Component({
   selector: 'app-orders',
@@ -28,9 +29,12 @@ import { Order, Page } from '../../../models/models';
             </div>
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center">
-                <div>
+                <div class="d-flex align-items-center gap-3">
+                  <img [src]="getOrderImageUrl(order)" width="56" height="56" class="rounded" style="object-fit:cover" alt="" (error)="onImageError($event)">
+                  <div>
                   <p class="mb-1"><i class="fas fa-shopping-bag me-2 text-muted"></i>{{ order.orderItems.length }} sản phẩm</p>
                   <p class="mb-0"><i class="fas fa-map-marker-alt me-2 text-muted"></i>{{ order.shippingAddress }}</p>
+                  </div>
                 </div>
                 <div class="text-end">
                   <div class="h5 text-primary fw-bold mb-2">{{ order.totalAmount | number:'1.0-0' }} VNĐ</div>
@@ -58,6 +62,7 @@ import { Order, Page } from '../../../models/models';
   `
 })
 export class OrdersComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   ordersPage: Page<Order> | null = null;
   loading = true;
   successMsg = '';
@@ -96,5 +101,15 @@ export class OrdersComponent implements OnInit {
       DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy', RETURNED: 'Đã trả'
     };
     return map[s] || s;
+  }
+
+  getOrderImageUrl(order: Order): string {
+    return resolveImageUrl(order.orderItems?.[0]?.product?.imageUrl ?? null);
+  }
+
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
 }

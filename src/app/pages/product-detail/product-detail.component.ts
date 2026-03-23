@@ -7,8 +7,9 @@ import { ProductService } from '../../services/product.service';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { Product } from '../../models/models';
-import { resolveProductImageUrl } from '../../utils/product-image.util';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-image.util';
 import { InventoryService } from '../../services/inventory.service';
+import { resolveAvailableQuantity } from '../../utils/product-stock.util';
 
 @Component({
   selector: 'app-product-detail',
@@ -37,13 +38,12 @@ import { InventoryService } from '../../services/inventory.service';
           <div class="col-lg-6 mb-4">
             <div class="card shadow-sm p-3">
               <div class="product-image" style="height:350px;">
-                <img *ngIf="product.imageUrl" [src]="getImageUrl(product.imageUrl)" [alt]="product.name" class="img-fluid rounded">
-                <i *ngIf="!product.imageUrl" class="fas fa-pills" style="font-size:6rem;color:#cbd5e1"></i>
+                <img [src]="getImageUrl(product.imageUrl)" [alt]="product.name" class="img-fluid rounded" (error)="onImageError($event)">
               </div>
               <div class="mt-3">
                 <span *ngIf="product.featured" class="badge bg-warning text-dark me-2"><i class="fas fa-star me-1"></i>Sản phẩm nổi bật</span>
-                <span *ngIf="product.stockQuantity <= 0" class="badge bg-danger me-2"><i class="fas fa-times me-1"></i>Hết hàng</span>
-                <span *ngIf="product.stockQuantity > 0 && product.stockQuantity <= 10" class="badge bg-warning text-dark"><i class="fas fa-exclamation me-1"></i>Sắp hết hàng</span>
+                <span *ngIf="availableStock <= 0" class="badge bg-danger me-2"><i class="fas fa-times me-1"></i>Hết hàng</span>
+                <span *ngIf="availableStock > 0" class="badge bg-success"><i class="fas fa-check me-1"></i>Còn hàng</span>
               </div>
             </div>
           </div>
@@ -92,7 +92,11 @@ import { InventoryService } from '../../services/inventory.service';
                 <input type="number" class="form-control text-center quantity-input" [(ngModel)]="qty" min="1" [max]="availableStock || 1">
                 <button class="btn btn-outline-secondary" (click)="incQty()"><i class="fas fa-plus"></i></button>
               </div>
-              <button class="btn btn-primary btn-lg" [disabled]="availableStock === 0 || !stockChecked" (click)="addToCart()">
+              <button
+                class="btn btn-primary btn-lg"
+                [disabled]="availableStock === 0 || !stockChecked"
+                [title]="availableStock === 0 ? 'Sản phẩm hiện hết hàng' : 'Thêm vào giỏ hàng'"
+                (click)="addToCart()">
                 <i class="fas fa-cart-plus me-2"></i>Thêm vào giỏ hàng
               </button>
             </div>
@@ -148,6 +152,7 @@ import { InventoryService } from '../../services/inventory.service';
   `
 })
 export class ProductDetailComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   product: Product | null = null;
   loading = true;
   qty = 1;
@@ -171,6 +176,11 @@ export class ProductDetailComponent implements OnInit {
     this.productService.getById(id).subscribe({
       next: p => {
         this.product = p;
+        this.availableStock = resolveAvailableQuantity(p);
+        this.stockChecked = true;
+        if (this.qty > this.availableStock && this.availableStock > 0) {
+          this.qty = this.availableStock;
+        }
         this.loading = false;
         this.checkStock();
       },
@@ -185,17 +195,19 @@ export class ProductDetailComponent implements OnInit {
     this.stockChecked = false;
     this.inventoryService.getStockStatus(this.product.id).subscribe({
       next: res => {
-        this.availableStock = res?.quantity ?? 0;
-        this.stockChecked = true;
-        if (this.availableStock === 0) {
-          this.showToast('Sản phẩm này hiện đang hết hàng', 'error');
+        const qty = Number(res?.quantity);
+        if (Number.isFinite(qty)) {
+          this.availableStock = Math.max(0, qty);
+        } else {
+          this.availableStock = resolveAvailableQuantity(this.product);
         }
+        this.stockChecked = true;
         if (this.qty > this.availableStock) {
           this.qty = this.availableStock || 1;
         }
       },
       error: () => {
-        this.availableStock = 0;
+        this.availableStock = resolveAvailableQuantity(this.product);
         this.stockChecked = true;
       }
     });
@@ -209,8 +221,13 @@ export class ProductDetailComponent implements OnInit {
     if (this.availableStock && this.qty < this.availableStock) this.qty++;
   }
 
-  getImageUrl(url: string): string {
-    return resolveProductImageUrl(url);
+  getImageUrl(url: string | null | undefined): string {
+    return resolveImageUrl(url);
+  }
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
 
   addToCart(): void {
@@ -232,7 +249,14 @@ export class ProductDetailComponent implements OnInit {
       this.showToast(null, null); // clear toast if any
       setTimeout(() => this.addSuccess = false, 3000);
       this.checkStock();
+    }, err => {
+      this.showToast(this.extractErrorMessage(err, 'Không thể thêm vào giỏ hàng.'), 'error');
+      this.checkStock();
     });
+  }
+
+  private extractErrorMessage(error: any, fallback: string): string {
+    return error?.error?.message || error?.error?.error || fallback;
   }
 
   private showToast(message: string | null, type: 'error' | 'warning' | null): void {

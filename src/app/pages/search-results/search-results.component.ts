@@ -6,7 +6,7 @@ import { ProductService } from '../../services/product.service';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
 import { Product, Page } from '../../models/models';
-import { resolveProductImageUrl } from '../../utils/product-image.util';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-image.util';
 @Component({
   selector: 'app-search-results',
   standalone: true,
@@ -30,8 +30,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
               (keydown.enter)="viewProduct(product.id)"
               (keydown.space)="viewProduct(product.id); $event.preventDefault()">
               <div class="product-image">
-                <img *ngIf="product.imageUrl" [src]="getImageUrl(product.imageUrl)" [alt]="product.name">
-                <i *ngIf="!product.imageUrl" class="fas fa-pills"></i>
+                <img [src]="getImageUrl(product.imageUrl)" [alt]="product.name" (error)="onImageError($event)">
               </div>
               <div class="card-body d-flex flex-column">
                 <h6 class="fw-bold">{{ product.name }}</h6>
@@ -63,6 +62,7 @@ import { resolveProductImageUrl } from '../../utils/product-image.util';
   `
 })
 export class SearchResultsComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   query = '';
   resultsPage: Page<Product> | null = null;
   loading = false;
@@ -102,8 +102,13 @@ export class SearchResultsComponent implements OnInit {
       }
     });
   }
-  getImageUrl(url: string): string {
-    return resolveProductImageUrl(url);
+  getImageUrl(url: string | null | undefined): string {
+    return resolveImageUrl(url);
+  }
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
   viewProduct(productId: number): void {
     this.router.navigate(['/products', productId]);

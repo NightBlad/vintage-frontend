@@ -22,6 +22,7 @@ export interface Product {
   price: number;
   salePrice?: number | null;
   stockQuantity: number;
+  availableQuantity?: number;
   manufacturer?: string;
   country?: string;
   dosageForm?: string;
@@ -60,6 +61,7 @@ export interface CartItem {
   quantity: number;
   subtotal: number;
   stockQuantity: number;
+  availableQuantity?: number;
 }
 
 export interface CartSummary {

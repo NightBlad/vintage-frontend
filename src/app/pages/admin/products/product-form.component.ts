@@ -6,7 +6,7 @@ import { AdminLayoutComponent } from '../../../components/admin-layout/admin-lay
 import { ProductService } from '../../../services/product.service';
 import { CategoryService } from '../../../services/category.service';
 import { Category, Product } from '../../../models/models';
-import { environment } from '../../../../environments/environment';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/product-image.util';
 
 @Component({
   selector: 'app-product-form',
@@ -144,7 +144,7 @@ import { environment } from '../../../../environments/environment';
               <div class="card-header"><h5 class="mb-0">Hình ảnh</h5></div>
               <div class="card-body">
                 <div *ngIf="previewUrl || currentImageUrl" class="mb-3 text-center">
-                  <img [src]="previewUrl || currentImageUrl" alt="" class="img-thumbnail" style="max-height:200px">
+                  <img [src]="previewUrl || currentImageUrl" alt="" class="img-thumbnail" style="max-height:200px" (error)="onImageError($event)">
                 </div>
                 <input type="file" class="form-control" accept="image/*" (change)="onFileChange($event)">
                 <small class="text-muted">JPG, PNG, WEBP - Tối đa 5MB</small>
@@ -190,6 +190,7 @@ import { environment } from '../../../../environments/environment';
   `
 })
 export class ProductFormComponent implements OnInit {
+  readonly placeholderImage = PRODUCT_PLACEHOLDER_IMAGE;
   isEdit = false;
   loading = false;
   saving = false;
@@ -277,11 +278,7 @@ export class ProductFormComponent implements OnInit {
             this.updateSubCategories();
           }
 
-          if (p.imageUrl) {
-            this.currentImageUrl = p.imageUrl.startsWith('http')
-              ? p.imageUrl
-              : `${environment.apiUrl.replace('/api/v1', '')}/uploads/products/${p.imageUrl}`;
-          }
+          this.currentImageUrl = resolveImageUrl(p.imageUrl);
           this.loading = false;
         },
         error: () => {
@@ -326,6 +323,12 @@ export class ProductFormComponent implements OnInit {
       reader.onload = e => this.previewUrl = e.target?.result as string;
       reader.readAsDataURL(this.selectedFile);
     }
+  }
+
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img || img.getAttribute('src') === this.placeholderImage) return;
+    img.src = this.placeholderImage;
   }
 
   submit(): void {
