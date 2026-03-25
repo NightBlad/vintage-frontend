@@ -75,10 +75,14 @@ export type CartResponse = CartSummary;
 export interface OrderItem {
   id: number;
   product: Product;
+  productId?: number;
   productName: string;
   productCode: string;
+  productImage?: string;
   quantity: number;
+  price?: number;
   unitPrice: number;
+  totalPrice?: number;
   subtotal: number;
 }
 
@@ -97,7 +101,9 @@ export interface Order {
   shippingAddress: string;
   notes?: string;
   orderDate: string;
+  updatedAt?: string;
   orderItems: OrderItem[];
+  itemCount?: number;
 }
 
 export interface User {

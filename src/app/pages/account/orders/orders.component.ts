@@ -25,15 +25,19 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                 <strong>#{{ order.orderNumber }}</strong>
                 <small class="text-muted ms-2">{{ order.orderDate | date:'dd/MM/yyyy HH:mm' }}</small>
               </div>
-              <span class="badge" [ngClass]="getStatusClass(order.status)">{{ getStatusLabel(order.status) }}</span>
+              <div class="d-flex gap-2 align-items-center">
+                <span class="badge" [ngClass]="getPaymentStatusClass(order.paymentStatus)">{{ getPaymentStatusLabel(order.paymentStatus) }}</span>
+                <span class="badge" [ngClass]="getStatusClass(order.status)">{{ getStatusLabel(order.status) }}</span>
+              </div>
             </div>
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-3">
                   <img [src]="getOrderImageUrl(order)" width="56" height="56" class="rounded" style="object-fit:cover" alt="" (error)="onImageError($event)">
                   <div>
-                  <p class="mb-1"><i class="fas fa-shopping-bag me-2 text-muted"></i>{{ order.orderItems.length }} sản phẩm</p>
-                  <p class="mb-0"><i class="fas fa-map-marker-alt me-2 text-muted"></i>{{ order.shippingAddress }}</p>
+                    <p class="mb-1"><i class="fas fa-shopping-bag me-2 text-muted"></i>{{ order.orderItems?.length || order.itemCount || 0 }} sản phẩm</p>
+                    <p class="mb-0"><i class="fas fa-map-marker-alt me-2 text-muted"></i>{{ order.shippingAddress }}</p>
+                    <p class="mb-0 mt-1"><small class="text-muted"><i class="fas fa-credit-card me-1"></i>{{ getPaymentMethodLabel(order.paymentMethod) }}</small></p>
                   </div>
                 </div>
                 <div class="text-end">
@@ -42,7 +46,9 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                     <a [routerLink]="['/account/orders', order.id]" class="btn btn-primary btn-sm">
                       <i class="fas fa-eye me-1"></i>Xem
                     </a>
-                    <button class="btn btn-outline-danger btn-sm" *ngIf="order.status === 'PENDING'" (click)="cancel(order.id)">
+                    <button class="btn btn-outline-danger btn-sm"
+                            *ngIf="order.status === 'PENDING' || order.status === 'CONFIRMED'"
+                            (click)="cancel(order.id)">
                       <i class="fas fa-times me-1"></i>Hủy
                     </button>
                   </div>
@@ -81,30 +87,50 @@ export class OrdersComponent implements OnInit {
   }
 
   cancel(id: number): void {
+    if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
     this.orderService.cancelOrder(id).subscribe({
       next: () => { this.successMsg = 'Đơn hàng đã được hủy.'; this.load(); },
-      error: (err: any) => this.errorMsg = err.error?.message || 'Không thể hủy đơn hàng.'
+      error: (err: any) => this.errorMsg = err.error?.error || err.error?.message || 'Không thể hủy đơn hàng.'
     });
   }
 
   getStatusClass(s: string): string {
     const map: Record<string, string> = {
-      PENDING: 'bg-warning text-dark', CONFIRMED: 'bg-info', SHIPPING: 'bg-primary',
-      DELIVERED: 'bg-success', CANCELLED: 'bg-danger', RETURNED: 'bg-secondary'
+      PENDING: 'bg-warning text-dark', CONFIRMED: 'bg-info', PROCESSING: 'bg-primary',
+      SHIPPED: 'bg-primary', DELIVERED: 'bg-success', CANCELLED: 'bg-danger'
     };
     return map[s] || 'bg-secondary';
   }
 
   getStatusLabel(s: string): string {
     const map: Record<string, string> = {
-      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', SHIPPING: 'Đang giao',
-      DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy', RETURNED: 'Đã trả'
+      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', PROCESSING: 'Đang xử lý',
+      SHIPPED: 'Đang giao', DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy'
     };
     return map[s] || s;
   }
 
-  getOrderImageUrl(order: Order): string {
-    return resolveImageUrl(order.orderItems?.[0]?.product?.imageUrl ?? null);
+  getPaymentMethodLabel(m: string): string {
+    const map: Record<string, string> = {
+      COD: 'Thanh toán khi nhận hàng', BANK_TRANSFER: 'Chuyển khoản',
+      CREDIT_CARD: 'Thẻ tín dụng', E_WALLET: 'Ví điện tử'
+    };
+    return map[m] || m;
+  }
+
+  getPaymentStatusLabel(s: string): string {
+    const map: Record<string, string> = { PAID: 'Đã thanh toán', UNPAID: 'Chưa thanh toán', REFUNDED: 'Đã hoàn tiền' };
+    return map[s] || s;
+  }
+
+  getPaymentStatusClass(s: string): string {
+    const map: Record<string, string> = { PAID: 'bg-success', UNPAID: 'bg-warning text-dark', REFUNDED: 'bg-info' };
+    return map[s] || 'bg-secondary';
+  }
+
+  getOrderImageUrl(order: any): string {
+    const firstItem = order.orderItems?.[0];
+    return resolveImageUrl(firstItem?.product?.imageUrl ?? firstItem?.productImage ?? null);
   }
 
   onImageError(event: Event): void {

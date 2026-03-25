@@ -138,7 +138,7 @@ export class CheckoutComponent implements OnInit {
       },
       error: (err: any) => {
         this.submitting = false;
-        this.errorMsg = err.error?.message || 'Có lỗi xảy ra khi đặt hàng.';
+        this.errorMsg = err.error?.error || err.error?.message || 'Có lỗi xảy ra khi đặt hàng.';
       }
     });
   }
