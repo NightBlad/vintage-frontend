@@ -28,6 +28,7 @@ export interface Product {
   dosageForm?: string;
   packaging?: string;
   imageUrl?: string;
+  additionalImages?: string[];
   prescriptionRequired: boolean;
   active: boolean;
   featured: boolean;

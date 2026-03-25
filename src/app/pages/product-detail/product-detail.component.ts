@@ -34,12 +34,34 @@ import { resolveAvailableQuantity } from '../../utils/product-stock.util';
         </nav>
 
         <div class="row">
-          <!-- Image -->
+          <!-- Image Carousel -->
           <div class="col-lg-6 mb-4">
             <div class="card shadow-sm p-3">
-              <div class="product-image" style="height:350px;">
-                <img [src]="getImageUrl(product.imageUrl)" [alt]="product.name" class="img-fluid rounded" (error)="onImageError($event)">
+              <!-- Main display image -->
+              <div class="product-main-image mb-3" style="height:380px;display:flex;align-items:center;justify-content:center;background:#f8f9fa;border-radius:8px;overflow:hidden;">
+                <img [src]="getImageUrl(allImages[activeImageIndex])" [alt]="product.name" class="img-fluid rounded" style="max-height:100%;max-width:100%;object-fit:contain;" (error)="onImageError($event)">
               </div>
+
+              <!-- Thumbnail navigation -->
+              <div *ngIf="allImages.length > 1" class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary btn-sm" (click)="prevImage()" [disabled]="activeImageIndex === 0">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="d-flex gap-2 overflow-auto flex-grow-1 py-1" style="scrollbar-width:thin;">
+                  <div *ngFor="let img of allImages; let i = index"
+                       class="flex-shrink-0 border rounded cursor-pointer"
+                       [class.border-primary]="i === activeImageIndex"
+                       [class.border-2]="i === activeImageIndex"
+                       style="width:64px;height:64px;cursor:pointer;overflow:hidden;"
+                       (click)="activeImageIndex = i">
+                    <img [src]="getImageUrl(img)" alt="" style="width:100%;height:100%;object-fit:cover;" (error)="onImageError($event)">
+                  </div>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" (click)="nextImage()" [disabled]="activeImageIndex === allImages.length - 1">
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+              </div>
+
               <div class="mt-3">
                 <span *ngIf="product.featured" class="badge bg-warning text-dark me-2"><i class="fas fa-star me-1"></i>Sản phẩm nổi bật</span>
                 <span *ngIf="availableStock <= 0" class="badge bg-danger me-2"><i class="fas fa-times me-1"></i>Hết hàng</span>
@@ -162,6 +184,8 @@ export class ProductDetailComponent implements OnInit {
   stockChecked = false;
   toastMessage: string | null = null;
   toastType: 'error' | 'warning' | null = null;
+  allImages: (string | undefined)[] = [];
+  activeImageIndex = 0;
 
   constructor(
     private productService: ProductService,
@@ -176,6 +200,7 @@ export class ProductDetailComponent implements OnInit {
     this.productService.getById(id).subscribe({
       next: p => {
         this.product = p;
+        this.buildImageList(p);
         this.availableStock = resolveAvailableQuantity(p);
         this.stockChecked = true;
         if (this.qty > this.availableStock && this.availableStock > 0) {
@@ -211,6 +236,28 @@ export class ProductDetailComponent implements OnInit {
         this.stockChecked = true;
       }
     });
+  }
+
+  private buildImageList(p: Product): void {
+    this.allImages = [];
+    if (p.imageUrl) {
+      this.allImages.push(p.imageUrl);
+    }
+    if (p.additionalImages && p.additionalImages.length > 0) {
+      this.allImages.push(...p.additionalImages);
+    }
+    if (this.allImages.length === 0) {
+      this.allImages.push(undefined);
+    }
+    this.activeImageIndex = 0;
+  }
+
+  prevImage(): void {
+    if (this.activeImageIndex > 0) this.activeImageIndex--;
+  }
+
+  nextImage(): void {
+    if (this.activeImageIndex < this.allImages.length - 1) this.activeImageIndex++;
   }
 
   decQty(): void {
