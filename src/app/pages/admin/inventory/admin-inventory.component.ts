@@ -79,37 +79,37 @@ import { InventoryService } from '../../../services/inventory.service';
         </div>
       </div>
 
-      <!-- Modal điều chỉnh tồn kho -->
-      <div class="modal fade show" tabindex="-1" style="display:block;background:rgba(0,0,0,.5)" *ngIf="showModal">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Điều chỉnh tồn kho</h5>
-              <button type="button" class="btn-close" (click)="closeModal()"></button>
-            </div>
-            <div class="modal-body" *ngIf="selectedItem">
-              <p class="mb-2"><strong>Sản phẩm:</strong> {{ selectedItem.productName }}</p>
-              <p class="mb-3"><strong>Kho:</strong> {{ selectedItem.warehouseName }}</p>
+<!--      &lt;!&ndash; Modal điều chỉnh tồn kho &ndash;&gt;-->
+<!--      <div class="modal fade show" tabindex="-1" style="display:block;background:rgba(0,0,0,.5)" *ngIf="showModal">-->
+<!--        <div class="modal-dialog">-->
+<!--          <div class="modal-content">-->
+<!--            <div class="modal-header">-->
+<!--              <h5 class="modal-title">Điều chỉnh tồn kho</h5>-->
+<!--              <button type="button" class="btn-close" (click)="closeModal()"></button>-->
+<!--            </div>-->
+<!--            <div class="modal-body" *ngIf="selectedItem">-->
+<!--              <p class="mb-2"><strong>Sản phẩm:</strong> {{ selectedItem.productName }}</p>-->
+<!--              <p class="mb-3"><strong>Kho:</strong> {{ selectedItem.warehouseName }}</p>-->
 
-              <div class="mb-3">
-                <label class="form-label">Số lượng điều chỉnh (+/-)</label>
-                <input type="number" class="form-control" [(ngModel)]="adjustQuantity">
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Ghi chú</label>
-                <textarea class="form-control" rows="3" [(ngModel)]="adjustNote"></textarea>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" (click)="closeModal()">Hủy</button>
-              <button type="button" class="btn btn-primary" (click)="submitAdjust()" [disabled]="saving">
-                <span *ngIf="saving" class="spinner-border spinner-border-sm me-2"></span>
-                Lưu điều chỉnh
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+<!--              <div class="mb-3">-->
+<!--                <label class="form-label">Số lượng điều chỉnh (+/-)</label>-->
+<!--                <input type="number" class="form-control" [(ngModel)]="adjustQuantity">-->
+<!--              </div>-->
+<!--              <div class="mb-3">-->
+<!--                <label class="form-label">Ghi chú</label>-->
+<!--                <textarea class="form-control" rows="3" [(ngModel)]="adjustNote"></textarea>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--            <div class="modal-footer">-->
+<!--              <button type="button" class="btn btn-secondary" (click)="closeModal()">Hủy</button>-->
+<!--              <button type="button" class="btn btn-primary" (click)="submitAdjust()" [disabled]="saving">-->
+<!--                <span *ngIf="saving" class="spinner-border spinner-border-sm me-2"></span>-->
+<!--                Lưu điều chỉnh-->
+<!--              </button>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
     </app-admin-layout>
   `
 })

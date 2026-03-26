@@ -35,7 +35,6 @@ export const routes: Routes = [
   { path: 'admin/orders/:id', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/orders/admin-order-detail.component').then(m => m.AdminOrderDetailComponent) },
   { path: 'admin/users', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/users/admin-users.component').then(m => m.AdminUsersComponent) },
   { path: 'admin/inventory', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/inventory/admin-inventory.component').then(m => m.AdminInventoryComponent) },
-  { path: 'admin/inventory/adjust', canActivate: [adminGuard], loadComponent: () => import('./pages/admin/inventory/stock-adjustment.component').then(m => m.StockAdjustmentComponent) },
 
   { path: 'access-denied', loadComponent: () => import('./pages/error/access-denied.component').then(m => m.AccessDeniedComponent) },
   { path: '**', loadComponent: () => import('./pages/error/not-found.component').then(m => m.NotFoundComponent) }

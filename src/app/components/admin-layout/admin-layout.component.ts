@@ -62,11 +62,11 @@ import { AuthService } from '../../services/auth.service';
               <i class="fas fa-warehouse me-1"></i>Kho hàng
             </a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link" routerLink="/admin/inventory/adjust" routerLinkActive="active">
-              <i class="fas fa-boxes-stacked me-1"></i>Điều chỉnh tồn kho
-            </a>
-          </li>
+<!--          <li class="nav-item">-->
+<!--            <a class="nav-link" routerLink="/admin/inventory/adjust" routerLinkActive="active">-->
+<!--              <i class="fas fa-boxes-stacked me-1"></i>Điều chỉnh tồn kho-->
+<!--            </a>-->
+<!--          </li>-->
         </ul>
       </div>
     </div>
