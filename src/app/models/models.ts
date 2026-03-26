@@ -160,6 +160,37 @@ export interface DashboardStats {
   lowStockCount: number;
   lowStockProducts: Product[];
   recentOrders: Order[];
+  salesSummary?: DashboardSalesSummary;
+}
+
+export interface DashboardSalesSummary {
+  recentOrderCount?: number;
+  recentRevenue?: number;
+  recentAov?: number;
+  recentCancellationRate?: number;
+  topSellingProducts?: DashboardTopSellingProduct[];
+  statusStats?: DashboardStatusStat[];
+  insights?: DashboardInsight[];
+}
+
+export interface DashboardTopSellingProduct {
+  productId?: number | null;
+  productName: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface DashboardStatusStat {
+  status: string;
+  count: number;
+  share?: number;
+}
+
+export interface DashboardInsight {
+  tone: 'success' | 'warning' | 'info';
+  message: string;
+  link?: string;
+  linkLabel?: string;
 }
 
 export interface ChatMessage {

@@ -3,7 +3,35 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { AdminService } from '../../../services/admin.service';
-import { DashboardStats } from '../../../models/models';
+import {
+  DashboardInsight,
+  DashboardSalesSummary,
+  DashboardStats,
+  DashboardStatusStat,
+  DashboardTopSellingProduct
+} from '../../../models/models';
+
+interface TopSellingProduct {
+  productId: number | null;
+  productName: string;
+  quantity: number;
+  revenue: number;
+}
+
+interface OrderStatusStat {
+  status: string;
+  label: string;
+  className: string;
+  count: number;
+  share: number;
+}
+
+interface SalesInsight {
+  tone: 'success' | 'warning' | 'info';
+  message: string;
+  link?: string;
+  linkLabel?: string;
+}
 
 @Component({
   selector: 'app-dashboard',
@@ -57,6 +85,68 @@ import { DashboardStats } from '../../../models/models';
           </div>
         </div>
 
+        <!-- Sales Report -->
+        <div class="row mb-4">
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Báo cáo bán hàng nhanh</h5>
+              <small class="text-muted">Dữ liệu được tính trên đơn hàng gần đây</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-5">
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-primary border-4">
+              <div class="card-body">
+                <small class="text-muted">Đơn hàng gần đây</small>
+                <h4 class="fw-bold mb-0">{{ recentOrderCount }}</h4>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-success border-4">
+              <div class="card-body">
+                <small class="text-muted">Doanh thu đã giao gần đây</small>
+                <h4 class="fw-bold mb-0 text-success">{{ recentRevenue | number:'1.0-0' }} VNĐ</h4>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-info border-4">
+              <div class="card-body">
+                <small class="text-muted">Giá trị đơn trung bình</small>
+                <h4 class="fw-bold mb-0 text-info">{{ recentAov | number:'1.0-0' }} VNĐ</h4>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-danger border-4">
+              <div class="card-body">
+                <small class="text-muted">Tỷ lệ hủy gần đây</small>
+                <h4 class="fw-bold mb-0 text-danger">{{ recentCancellationRate | number:'1.0-1' }}%</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-5" *ngIf="salesInsights.length">
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header"><h5 class="mb-0"><i class="fas fa-bullseye me-2"></i>Gợi ý hành động cho sale</h5></div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between align-items-center" *ngFor="let insight of salesInsights">
+                  <span>
+                    <i class="fas me-2" [ngClass]="{ 'fa-circle-check text-success': insight.tone === 'success', 'fa-triangle-exclamation text-warning': insight.tone === 'warning', 'fa-circle-info text-info': insight.tone === 'info' }"></i>
+                    {{ insight.message }}
+                  </span>
+                  <a *ngIf="insight.link && insight.linkLabel" [routerLink]="insight.link" class="btn btn-sm btn-outline-primary">{{ insight.linkLabel }}</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <!-- Quick Actions -->
         <div class="row mb-5">
           <div class="col-12">
@@ -98,6 +188,54 @@ import { DashboardStats } from '../../../models/models';
           </div>
         </div>
 
+        <div class="row mb-4">
+          <div class="col-lg-7 mb-4 mb-lg-0">
+            <div class="card shadow-sm h-100">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-medal me-2"></i>Top sản phẩm bán chạy</h5>
+                <small class="text-muted" *ngIf="recentOrderCount">Top 5</small>
+              </div>
+              <div class="table-responsive">
+                <table class="table mb-0" *ngIf="topSellingProducts.length; else noTopProducts">
+                  <thead class="table-light">
+                    <tr><th>Sản phẩm</th><th class="text-center">Số lượng</th><th class="text-end">Doanh thu</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let p of topSellingProducts">
+                      <td>{{ p.productName }}</td>
+                      <td class="text-center"><span class="badge bg-primary">{{ p.quantity }}</span></td>
+                      <td class="text-end fw-bold text-success">{{ p.revenue | number:'1.0-0' }} VNĐ</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <ng-template #noTopProducts>
+                  <div class="text-center py-4 text-muted">Chưa có dữ liệu để xếp hạng sản phẩm</div>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+              <div class="card-header"><h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Phân bổ trạng thái đơn</h5></div>
+              <div class="card-body" *ngIf="statusStats.length; else noStatusStats">
+                <div class="mb-3" *ngFor="let s of statusStats">
+                  <div class="d-flex justify-content-between small mb-1">
+                    <span>{{ s.label }}</span>
+                    <span>{{ s.count }} ({{ s.share | number:'1.0-0' }}%)</span>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div class="progress-bar" [ngClass]="s.className" [style.width.%]="s.share"></div>
+                  </div>
+                </div>
+              </div>
+              <ng-template #noStatusStats>
+                <div class="card-body text-center text-muted">Không có dữ liệu trạng thái đơn hàng</div>
+              </ng-template>
+            </div>
+          </div>
+        </div>
+
         <!-- Recent Orders -->
         <div class="row" *ngIf="stats.recentOrders?.length">
           <div class="col-12">
@@ -130,14 +268,170 @@ import { DashboardStats } from '../../../models/models';
 export class DashboardComponent implements OnInit {
   stats: DashboardStats | null = null;
   loading = true;
+  recentOrderCount = 0;
+  recentRevenue = 0;
+  recentAov = 0;
+  recentCancellationRate = 0;
+  topSellingProducts: TopSellingProduct[] = [];
+  statusStats: OrderStatusStat[] = [];
+  salesInsights: SalesInsight[] = [];
 
   constructor(private adminService: AdminService) {}
 
   ngOnInit(): void {
     this.adminService.getDashboard().subscribe({
-      next: s => { this.stats = s; this.loading = false; },
+      next: s => {
+        this.stats = s;
+        this.rebuildSalesReport(s);
+        this.loading = false;
+      },
       error: () => this.loading = false
     });
+  }
+
+  private rebuildSalesReport(stats: DashboardStats): void {
+    const orders = stats.recentOrders || [];
+    const apiSummary = stats.salesSummary;
+    const statusList: Array<{ status: string; className: string }> = [
+      { status: 'PENDING', className: 'bg-warning' },
+      { status: 'CONFIRMED', className: 'bg-info' },
+      { status: 'SHIPPING', className: 'bg-primary' },
+      { status: 'DELIVERED', className: 'bg-success' },
+      { status: 'CANCELLED', className: 'bg-danger' }
+    ];
+
+    const fallbackOrderCount = orders.length;
+    const fallbackRevenue = orders
+      .filter(o => o.status === 'DELIVERED')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const fallbackAov = orders.length
+      ? orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0) / orders.length
+      : 0;
+
+    const cancelledCount = orders.filter(o => o.status === 'CANCELLED').length;
+    const fallbackCancellationRate = orders.length ? (cancelledCount / orders.length) * 100 : 0;
+
+    const itemMap = new Map<string, TopSellingProduct>();
+    for (const order of orders) {
+      for (const item of order.orderItems || []) {
+        const productId = item.productId ?? item.product?.id ?? null;
+        const productName = item.productName || item.product?.name || 'Sản phẩm khác';
+        const key = `${productId ?? 'na'}-${productName}`;
+        const current = itemMap.get(key) || {
+          productId,
+          productName,
+          quantity: 0,
+          revenue: 0
+        };
+        const quantity = item.quantity || 0;
+        const revenue = item.subtotal || (item.unitPrice || 0) * quantity;
+        current.quantity += quantity;
+        current.revenue += revenue;
+        itemMap.set(key, current);
+      }
+    }
+    const fallbackTopProducts = Array.from(itemMap.values())
+      .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+      .slice(0, 5);
+
+    const fallbackStatusStats = statusList
+      .map(s => {
+        const count = orders.filter(o => o.status === s.status).length;
+        const share = orders.length ? (count / orders.length) * 100 : 0;
+        return {
+          status: s.status,
+          label: this.getStatusLabel(s.status),
+          className: s.className,
+          count,
+          share
+        };
+      })
+      .filter(s => s.count > 0);
+
+    this.recentOrderCount = apiSummary?.recentOrderCount ?? fallbackOrderCount;
+    this.recentRevenue = apiSummary?.recentRevenue ?? fallbackRevenue;
+    this.recentAov = apiSummary?.recentAov ?? fallbackAov;
+    this.recentCancellationRate = apiSummary?.recentCancellationRate ?? fallbackCancellationRate;
+    this.topSellingProducts = this.mapTopSellingProducts(apiSummary) ?? fallbackTopProducts;
+    this.statusStats = this.mapStatusStats(apiSummary) ?? fallbackStatusStats;
+
+    this.salesInsights = [];
+    if (this.recentCancellationRate >= 15) {
+      this.salesInsights.push({
+        tone: 'warning',
+        message: `Tỷ lệ hủy đang ở mức ${this.recentCancellationRate.toFixed(1)}%. Nên kiểm tra lý do hủy và tối ưu khâu chốt đơn.`,
+        link: '/admin/orders',
+        linkLabel: 'Xem đơn hàng'
+      });
+    }
+    if (stats.lowStockCount > 0) {
+      this.salesInsights.push({
+        tone: 'warning',
+        message: `${stats.lowStockCount} sản phẩm sắp hết hàng. Nên ưu tiên bổ sung tồn kho để tránh mất doanh thu.`,
+        link: '/admin/inventory/adjust',
+        linkLabel: 'Điều chỉnh kho'
+      });
+    }
+    if (this.topSellingProducts.length && this.topSellingProducts[0].quantity >= 3) {
+      this.salesInsights.push({
+        tone: 'success',
+        message: `${this.topSellingProducts[0].productName} đang là sản phẩm bán chạy nhất. Có thể đẩy mạnh combo hoặc upsell.`,
+        link: '/admin/products',
+        linkLabel: 'Xem sản phẩm'
+      });
+    }
+    if (!this.salesInsights.length) {
+      this.salesInsights.push({
+        tone: 'info',
+        message: 'Doanh số gần đây ổn định. Có thể thử chương trình khuyến mãi nhỏ để tăng tốc bán hàng.'
+      });
+    }
+
+    if (apiSummary?.insights?.length) {
+      this.salesInsights = apiSummary.insights;
+    }
+  }
+
+  private mapTopSellingProducts(summary?: DashboardSalesSummary): TopSellingProduct[] | null {
+    const apiProducts = summary?.topSellingProducts;
+    if (!apiProducts?.length) {
+      return null;
+    }
+    return apiProducts.slice(0, 5).map((p: DashboardTopSellingProduct) => ({
+      productId: p.productId ?? null,
+      productName: p.productName,
+      quantity: p.quantity,
+      revenue: p.revenue
+    }));
+  }
+
+  private mapStatusStats(summary?: DashboardSalesSummary): OrderStatusStat[] | null {
+    const apiStats = summary?.statusStats;
+    if (!apiStats?.length) {
+      return null;
+    }
+
+    const totalCount = apiStats.reduce((sum, s) => sum + s.count, 0);
+    return apiStats
+      .map((s: DashboardStatusStat) => ({
+        status: s.status,
+        label: this.getStatusLabel(s.status),
+        className: this.getStatusBarClass(s.status),
+        count: s.count,
+        share: s.share ?? (totalCount ? (s.count / totalCount) * 100 : 0)
+      }))
+      .filter(s => s.count > 0);
+  }
+
+  private getStatusBarClass(status: string): string {
+    const m: Record<string, string> = {
+      PENDING: 'bg-warning',
+      CONFIRMED: 'bg-info',
+      SHIPPING: 'bg-primary',
+      DELIVERED: 'bg-success',
+      CANCELLED: 'bg-danger'
+    };
+    return m[status] || 'bg-secondary';
   }
 
   getStatusClass(s: string): string {
