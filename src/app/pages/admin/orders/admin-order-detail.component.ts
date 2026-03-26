@@ -96,11 +96,25 @@ import { Order } from '../../../models/models';
                   <strong>Phương thức:</strong>
                   <span class="ms-2">{{ order.paymentMethod === 'COD' ? 'Tiền mặt (COD)' : order.paymentMethod }}</span>
                 </div>
-                <div>
+                <div class="mb-2">
                   <strong>Trạng thái:</strong>
                   <span class="badge ms-2" [ngClass]="order.paymentStatus === 'PAID' ? 'bg-success' : 'bg-warning text-dark'">
                     {{ order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán' }}
                   </span>
+                </div>
+
+                <!-- Payment status update -->
+                <div class="mt-3">
+                  <label class="form-label mb-1">Cập nhật trạng thái thanh toán</label>
+                  <select class="form-select form-select-sm mb-2" [(ngModel)]="selectedPaymentStatus">
+                    <option value="UNPAID">Chưa thanh toán</option>
+                    <option value="PAID">Đã thanh toán</option>
+                  </select>
+                  <button class="btn btn-sm btn-outline-primary w-100" (click)="updatePaymentStatus()" [disabled]="updatingPayment || selectedPaymentStatus === order.paymentStatus">
+                    <span *ngIf="updatingPayment" class="spinner-border spinner-border-sm me-2"></span>
+                    <i *ngIf="!updatingPayment" class="fas fa-money-check-alt me-2"></i>
+                    Cập nhật thanh toán
+                  </button>
                 </div>
               </div>
             </div>
@@ -148,6 +162,10 @@ export class AdminOrderDetailComponent implements OnInit {
   error = '';
   successMsg = '';
 
+  // new state for payment update
+  selectedPaymentStatus = '';
+  updatingPayment = false;
+
   constructor(private orderService: OrderService, private route: ActivatedRoute) {}
 
   ngOnInit(): void {
@@ -164,6 +182,8 @@ export class AdminOrderDetailComponent implements OnInit {
       next: o => {
         this.order = o;
         this.selectedStatus = this.normalizeStatusForSelect(o.status);
+        // init payment status select
+        this.selectedPaymentStatus = o.paymentStatus || 'UNPAID';
         this.loading = false;
       },
       error: () => {
@@ -181,14 +201,45 @@ export class AdminOrderDetailComponent implements OnInit {
     if (!this.order) return;
     this.updating = true;
     this.successMsg = '';
+    this.error = ''; // clear previous error when starting update
     this.orderService.updateStatus(this.order.id, this.selectedStatus).subscribe({
       next: () => {
         this.updating = false;
         this.successMsg = 'Cập nhật trạng thái thành công!';
+        this.error = ''; // ensure error is cleared on success
         this.loadOrder();
         setTimeout(() => this.successMsg = '', 3000);
       },
       error: () => { this.error = 'Cập nhật thất bại!'; this.updating = false; }
+    });
+  }
+
+  // new method: update payment status
+  updatePaymentStatus(): void {
+    if (!this.order) return;
+
+    // Only allow marking as PAID when order is DELIVERED
+    if (this.selectedPaymentStatus === 'PAID' && this.order.status !== 'DELIVERED') {
+      this.error = 'Chỉ đơn hàng đã giao mới được chuyển sang trạng thái đã thanh toán.';
+      this.successMsg = '';
+      return;
+    }
+
+    this.updatingPayment = true;
+    this.successMsg = '';
+    this.error = '';
+    this.orderService.updatePaymentStatus(this.order.id, this.selectedPaymentStatus).subscribe({
+      next: () => {
+        this.updatingPayment = false;
+        this.successMsg = 'Cập nhật trạng thái thanh toán thành công!';
+        this.error = '';
+        this.loadOrder();
+        setTimeout(() => this.successMsg = '', 3000);
+      },
+      error: () => {
+        this.updatingPayment = false;
+        this.error = 'Cập nhật trạng thái thanh toán thất bại!';
+      }
     });
   }
 
@@ -208,4 +259,3 @@ export class AdminOrderDetailComponent implements OnInit {
     return m[s] || s;
   }
 }
-

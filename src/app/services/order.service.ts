@@ -41,5 +41,8 @@ export class OrderService {
   updateStatus(id: number, status: string): Observable<Order> {
     return this.http.put<Order>(`${environment.apiUrl}/admin/orders/${id}/status`, { status });
   }
-}
 
+  updatePaymentStatus(id: number, paymentStatus: string): Observable<Order> {
+    return this.http.put<Order>(`${environment.apiUrl}/admin/orders/${id}/payment-status`, { paymentStatus });
+  }
+}
