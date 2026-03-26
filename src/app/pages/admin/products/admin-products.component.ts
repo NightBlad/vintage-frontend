@@ -74,7 +74,9 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                        <small class="text-muted" [innerHTML]="highlight(p.manufacturer)"></small>
                      </td>
                      <td data-label="Mã SP"><code [innerHTML]="highlight(p.productCode)"></code></td>
-                    <td data-label="Danh mục">{{ p.category?.name || '—' }}</td>
+                    <td data-label="Danh mục">
+                      {{ p.subCategoryName || p.mainCategoryName || p.categoryName || '—' }}
+                    </td>
                     <td class="text-end" data-label="Giá">
                       <span *ngIf="p.salePrice" class="text-danger fw-bold">{{ p.salePrice | number:'1.0-0' }} ₫</span>
                       <span [class]="p.salePrice ? 'text-muted text-decoration-line-through ms-1 small' : 'fw-bold text-primary'">
@@ -195,4 +197,3 @@ export class AdminProductsComponent implements OnInit {
     img.src = this.placeholderImage;
   }
 }
-
