@@ -69,6 +69,9 @@ export interface CartSummary {
   items: CartItem[];
   totalItems: number;
   totalAmount: number;
+  shippingFee?: number;
+  freeShippingThreshold?: number;
+  grandTotal?: number;
 }
 export type CartResponse = CartSummary;
 

@@ -86,9 +86,25 @@ import { CartSummary } from '../../models/models';
                     </div>
                   </div>
                   <hr>
+                  <div class="d-flex justify-content-between mb-2">
+                    <span>Tiền sản phẩm:</span>
+                    <span>{{ cart.totalAmount | number:'1.0-0' }} VNĐ</span>
+                  </div>
+                  <div class="d-flex justify-content-between mb-2">
+                    <span>Phí vận chuyển:</span>
+                    <span [class.text-success]="shippingFee === 0">
+                      {{ shippingFee | number:'1.0-0' }} VNĐ
+                    </span>
+                  </div>
+                  <div class="small text-success mb-2" *ngIf="shippingFee === 0">
+                    Miễn phí ship cho đơn trên {{ freeShippingThreshold | number:'1.0-0' }} VNĐ.
+                  </div>
+                  <div class="d-flex justify-content-between mb-3" *ngIf="shippingFee > 0">
+                    <span class="small text-muted">Mua thêm {{ amountToFreeShipping | number:'1.0-0' }} VNĐ để được miễn phí ship</span>
+                  </div>
                   <div class="d-flex justify-content-between fw-bold h5">
-                    <span>Tổng cộng:</span>
-                    <span class="text-primary">{{ cart.totalAmount | number:'1.0-0' }} VNĐ</span>
+                    <span>Tổng thanh toán:</span>
+                    <span class="text-primary">{{ grandTotal | number:'1.0-0' }} VNĐ</span>
                   </div>
                   <button type="submit" class="btn btn-primary w-100 mt-3 btn-lg" [disabled]="f.invalid || submitting">
                     <span class="spinner-border spinner-border-sm me-2" *ngIf="submitting"></span>
@@ -109,6 +125,27 @@ export class CheckoutComponent implements OnInit {
   submitting = false;
   errorMsg = '';
   form = { fullName: '', phone: '', address: '', notes: '', paymentMethod: 'COD' };
+
+  get freeShippingThreshold(): number {
+    return this.cart?.freeShippingThreshold ?? 500000;
+  }
+
+  get shippingFee(): number {
+    if (!this.cart) return 0;
+    if (typeof this.cart.shippingFee === 'number') return this.cart.shippingFee;
+    return this.cart.totalAmount > this.freeShippingThreshold ? 0 : 30000;
+  }
+
+  get grandTotal(): number {
+    if (!this.cart) return 0;
+    if (typeof this.cart.grandTotal === 'number') return this.cart.grandTotal;
+    return this.cart.totalAmount + this.shippingFee;
+  }
+
+  get amountToFreeShipping(): number {
+    if (!this.cart) return 0;
+    return Math.max(0, this.freeShippingThreshold - this.cart.totalAmount);
+  }
 
   constructor(
     private cartService: CartService,

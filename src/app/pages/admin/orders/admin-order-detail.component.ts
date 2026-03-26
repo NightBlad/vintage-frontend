@@ -141,6 +141,7 @@ import { Order } from '../../../models/models';
 })
 export class AdminOrderDetailComponent implements OnInit {
   order: Order | null = null;
+  private orderId: number | null = null;
   loading = true;
   updating = false;
   selectedStatus = '';
@@ -152,11 +153,28 @@ export class AdminOrderDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      this.orderService.adminGetById(+id).subscribe({
-        next: o => { this.order = o; this.selectedStatus = o.status; this.loading = false; },
-        error: () => { this.error = 'Không tìm thấy đơn hàng'; this.loading = false; }
-      });
+      this.orderId = +id;
+      this.loadOrder();
     }
+  }
+
+  private loadOrder(): void {
+    if (!this.orderId) return;
+    this.orderService.adminGetById(this.orderId).subscribe({
+      next: o => {
+        this.order = o;
+        this.selectedStatus = this.normalizeStatusForSelect(o.status);
+        this.loading = false;
+      },
+      error: () => {
+        this.error = 'Không tìm thấy đơn hàng';
+        this.loading = false;
+      }
+    });
+  }
+
+  private normalizeStatusForSelect(status: string): string {
+    return status === 'SHIPPED' ? 'SHIPPING' : status;
   }
 
   updateStatus(): void {
@@ -164,11 +182,10 @@ export class AdminOrderDetailComponent implements OnInit {
     this.updating = true;
     this.successMsg = '';
     this.orderService.updateStatus(this.order.id, this.selectedStatus).subscribe({
-      next: o => {
-        this.order = o;
-        this.selectedStatus = o.status;
+      next: () => {
         this.updating = false;
         this.successMsg = 'Cập nhật trạng thái thành công!';
+        this.loadOrder();
         setTimeout(() => this.successMsg = '', 3000);
       },
       error: () => { this.error = 'Cập nhật thất bại!'; this.updating = false; }
@@ -178,7 +195,7 @@ export class AdminOrderDetailComponent implements OnInit {
   getStatusClass(s: string): string {
     const m: Record<string, string> = {
       PENDING: 'bg-warning text-dark', CONFIRMED: 'bg-info',
-      SHIPPING: 'bg-primary', DELIVERED: 'bg-success', CANCELLED: 'bg-danger'
+      SHIPPING: 'bg-primary', SHIPPED: 'bg-primary', DELIVERED: 'bg-success', CANCELLED: 'bg-danger'
     };
     return m[s] || 'bg-secondary';
   }
@@ -186,7 +203,7 @@ export class AdminOrderDetailComponent implements OnInit {
   getStatusLabel(s: string): string {
     const m: Record<string, string> = {
       PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận',
-      SHIPPING: 'Đang giao', DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy'
+      SHIPPING: 'Đang giao', SHIPPED: 'Đang giao', DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy'
     };
     return m[s] || s;
   }

@@ -39,10 +39,16 @@ export class CartService {
     const items: CartItem[] = Array.isArray(payload?.items) ? payload.items.map((item: any) => this.normalizeItem(item)) : [];
     const fallbackTotalItems = items.reduce((sum, item) => sum + item.quantity, 0);
     const fallbackTotalAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const totalAmount = this.toNumber(payload?.totalAmount, fallbackTotalAmount);
+    const shippingFee = this.toNumber(payload?.shippingFee);
+    const grandTotal = this.toNumber(payload?.grandTotal, totalAmount + shippingFee);
     return {
       items,
       totalItems: this.toNumber(payload?.totalItems, fallbackTotalItems),
-      totalAmount: this.toNumber(payload?.totalAmount, fallbackTotalAmount)
+      totalAmount,
+      shippingFee,
+      freeShippingThreshold: this.toNumber(payload?.freeShippingThreshold, 500000),
+      grandTotal
     };
   }
   private hasCartItems(payload: any): boolean {
