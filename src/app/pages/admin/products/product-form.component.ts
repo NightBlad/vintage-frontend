@@ -7,6 +7,7 @@ import { ProductService } from '../../../services/product.service';
 import { CategoryService } from '../../../services/category.service';
 import { Category, Product } from '../../../models/models';
 import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/product-image.util';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-product-form',
@@ -66,8 +67,8 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                   <div class="mb-3" *ngIf="availableSubCategories.length">
                     <label class="form-label fw-medium">Danh mục phụ (tùy chọn)</label>
                     <select class="form-select" [(ngModel)]="selectedSubCategoryId" name="subCategoryId" (change)="onSubCategoryChange()">
-                      <option [value]="null">-- Không chọn danh mục phụ --</option>
-                      <option *ngFor="let c of availableSubCategories" [value]="c.id">{{ c.name }}</option>
+                      <option [ngValue]="null">-- Không chọn danh mục phụ --</option>
+                      <option *ngFor="let c of availableSubCategories" [ngValue]="c.id">{{ c.name }}</option>
                     </select>
                     <small class="text-muted">Nếu chọn danh mục phụ, sẽ ưu tiên danh mục phụ trong việc lưu</small>
                   </div>
@@ -207,6 +208,9 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
             <div class="alert alert-warning small mt-3" *ngIf="!selectedMainCategoryId">
               <i class="fas fa-exclamation-triangle me-1"></i>Vui lòng chọn danh mục chính
             </div>
+            <div class="alert alert-warning small mt-3" *ngIf="requireSubCategory && !selectedSubCategoryId">
+              <i class="fas fa-exclamation-triangle me-1"></i>Danh mục chính này có danh mục phụ. Vui lòng chọn danh mục phụ.
+            </div>
           </div>
         </div>
       </form>
@@ -256,6 +260,9 @@ export class ProductFormComponent implements OnInit {
     prescriptionRequired: false
   };
 
+  // Thêm cờ yêu cầu bắt buộc chọn danh mục phụ nếu main có sub
+  requireSubCategory = false;
+
   constructor(
     private productService: ProductService,
     private categoryService: CategoryService,
@@ -264,75 +271,95 @@ export class ProductFormComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.categoryService.getAll().subscribe(cats => {
-      this.mainCategories = cats.filter(c => c.isMainCategory);
-    });
+    this.loading = true;
 
     const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.isEdit = true;
-      this.loading = true;
-      this.productService.getById(+id).subscribe({
-        next: p => {
-          this.model = {
-            name: p.name,
-            productCode: p.productCode,
-            description: p.description || '',
-            ingredients: p.ingredients || '',
-            usage: p.usage || '',
-            contraindications: p.contraindications || '',
-            price: p.price,
-            salePrice: p.salePrice || null,
-            stockQuantity: p.stockQuantity,
-            manufacturer: p.manufacturer || '',
-            country: p.country || '',
-            dosageForm: p.dosageForm || '',
-            packaging: p.packaging || '',
-            active: p.active,
-            featured: p.featured,
-            prescriptionRequired: p.prescriptionRequired
-          };
 
-          // Set category selections
-          if (p.subCategoryId) {
-            this.selectedSubCategoryId = p.subCategoryId;
-            // Find parent of this subcategory
-            const parent = this.mainCategories.find(c =>
-              c.subCategories?.some(sub => sub.id === p.subCategoryId)
-            );
-            if (parent) {
-              this.selectedMainCategoryId = parent.id;
-              this.updateSubCategories();
-            }
-          } else if (p.mainCategoryId) {
-            this.selectedMainCategoryId = p.mainCategoryId;
-            this.updateSubCategories();
-          }
-
-          this.currentImageUrl = resolveImageUrl(p.imageUrl);
-          this.existingAdditionalImages = p.additionalImages ? [...p.additionalImages] : [];
+    // Nếu đang tạo mới: chỉ cần load danh mục
+    if (!id) {
+      this.categoryService.getAll().subscribe({
+        next: cats => {
+          this.mainCategories = cats.filter(c => c.isMainCategory);
           this.loading = false;
         },
         error: () => {
-          this.error = 'Không tìm thấy sản phẩm';
+          this.error = 'Không tải được danh mục';
           this.loading = false;
         }
       });
+      return;
     }
+
+    // Nếu đang edit: load song song danh mục và sản phẩm, nhưng xử lý sau khi cả hai xong
+    forkJoin([
+      this.categoryService.getAll(),
+      this.productService.getById(+id)
+    ]).subscribe({
+      next: ([cats, p]) => {
+        this.isEdit = true;
+        this.mainCategories = cats.filter(c => c.isMainCategory);
+
+        this.model = {
+          name: p.name,
+          productCode: p.productCode,
+          description: p.description || '',
+          ingredients: p.ingredients || '',
+          usage: p.usage || '',
+          contraindications: p.contraindications || '',
+          price: p.price,
+          salePrice: p.salePrice || null,
+          stockQuantity: p.stockQuantity,
+          manufacturer: p.manufacturer || '',
+          country: p.country || '',
+          dosageForm: p.dosageForm || '',
+          packaging: p.packaging || '',
+          active: p.active,
+          featured: p.featured,
+          prescriptionRequired: p.prescriptionRequired
+        };
+
+        // Thiết lập danh mục cho form sau khi đã có mainCategories (có subCategories bên trong)
+        if (p.subCategoryId) {
+          this.selectedSubCategoryId = p.subCategoryId;
+          const parent = this.mainCategories.find(c =>
+            c.subCategories?.some(sub => sub.id === p.subCategoryId)
+          );
+          if (parent) {
+            this.selectedMainCategoryId = parent.id;
+            this.updateSubCategories();
+          }
+        } else if (p.mainCategoryId) {
+          this.selectedMainCategoryId = p.mainCategoryId;
+          this.updateSubCategories();
+        }
+
+        this.currentImageUrl = resolveImageUrl(p.imageUrl);
+        this.existingAdditionalImages = p.additionalImages ? [...p.additionalImages] : [];
+        this.loading = false;
+      },
+      error: () => {
+        this.error = 'Không tải được dữ liệu sản phẩm hoặc danh mục';
+        this.loading = false;
+      }
+    });
   }
 
   onMainCategoryChange(): void {
     this.selectedSubCategoryId = null;
     this.updateSubCategories();
+    const mainCat = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
+    this.requireSubCategory = !!(mainCat && mainCat.subCategories && mainCat.subCategories.length > 0);
   }
 
   onSubCategoryChange(): void {
-    // Validation: if subcategory is selected, ensure it belongs to current main category
     if (this.selectedSubCategoryId && this.selectedMainCategoryId) {
       const mainCat = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
       const validSubIds = mainCat?.subCategories?.map(s => s.id) || [];
       if (!validSubIds.includes(this.selectedSubCategoryId)) {
         this.selectedSubCategoryId = null;
+      } else {
+        // Người dùng đã chọn danh mục phụ hợp lệ -> bỏ cảnh báo bắt buộc
+        this.requireSubCategory = false;
       }
     }
   }
@@ -399,10 +426,18 @@ export class ProductFormComponent implements OnInit {
       return;
     }
 
+    // Nếu main có subCategories thì bắt buộc chọn subCategory
+    const mainCat = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
+    const hasSubs = !!(mainCat && mainCat.subCategories && mainCat.subCategories.length > 0);
+    if (hasSubs && !this.selectedSubCategoryId) {
+      this.error = 'Danh mục chính này có danh mục phụ. Vui lòng chọn danh mục phụ.';
+      return;
+    }
+
     // Validate subcategory belongs to selected main category
     if (this.selectedSubCategoryId && this.selectedMainCategoryId) {
-      const mainCat = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
-      const isValid = mainCat?.subCategories?.some(s => s.id === this.selectedSubCategoryId);
+      const validMain = this.mainCategories.find(c => c.id === this.selectedMainCategoryId);
+      const isValid = validMain?.subCategories?.some(s => s.id === this.selectedSubCategoryId);
       if (!isValid) {
         this.error = 'Danh mục phụ không hợp lệ cho danh mục chính này';
         return;
@@ -413,6 +448,10 @@ export class ProductFormComponent implements OnInit {
     this.error = '';
 
     const fd = new FormData();
+
+    // Gắn thêm mainCategoryId/subCategoryId vào model để dễ debug nếu cần
+    (this.model as any).mainCategoryId = this.selectedMainCategoryId;
+    (this.model as any).subCategoryId = this.selectedSubCategoryId;
 
     // Append all model fields
     Object.keys(this.model).forEach(k => {
@@ -456,4 +495,3 @@ export class ProductFormComponent implements OnInit {
     });
   }
 }
-
