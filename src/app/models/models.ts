@@ -164,6 +164,9 @@ export interface DashboardStats {
   lowStockProducts: Product[];
   recentOrders: Order[];
   salesSummary?: DashboardSalesSummary;
+  timeSeries?: DashboardTimeSeries;
+  revenueSummary?: DashboardRevenueSummary;
+  inventoryValue?: number;
 }
 
 export interface DashboardSalesSummary {
@@ -174,6 +177,24 @@ export interface DashboardSalesSummary {
   topSellingProducts?: DashboardTopSellingProduct[];
   statusStats?: DashboardStatusStat[];
   insights?: DashboardInsight[];
+}
+
+export interface DashboardTimeSeriesRow {
+  label: string;
+  orderCount: number;
+  revenue: number;
+}
+
+export interface DashboardTimeSeries {
+  daily: DashboardTimeSeriesRow[];
+  weekly: DashboardTimeSeriesRow[];
+  monthly: DashboardTimeSeriesRow[];
+}
+
+export interface DashboardRevenueSummary {
+  today?: number;
+  thisWeek?: number;
+  thisMonth?: number;
 }
 
 export interface DashboardTopSellingProduct {

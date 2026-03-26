@@ -93,7 +93,7 @@ import { CartSummary } from '../../models/models';
                   <div class="d-flex justify-content-between mb-2">
                     <span>Phí vận chuyển:</span>
                     <span [class.text-success]="shippingFee === 0">
-                      {{ shippingFee | number:'1.0-0' }} VNĐ
+                      {{ shippingFee === 0 ? '0 VNĐ (Miễn phí)' : (shippingFee | number:'1.0-0') + ' VNĐ' }}
                     </span>
                   </div>
                   <div class="small text-success mb-2" *ngIf="shippingFee === 0">

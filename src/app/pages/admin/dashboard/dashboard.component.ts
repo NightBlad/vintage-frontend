@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { AdminService } from '../../../services/admin.service';
@@ -8,7 +9,10 @@ import {
   DashboardSalesSummary,
   DashboardStats,
   DashboardStatusStat,
-  DashboardTopSellingProduct
+  DashboardTopSellingProduct,
+  DashboardTimeSeries,
+  DashboardTimeSeriesRow,
+  DashboardRevenueSummary
 } from '../../../models/models';
 
 interface TopSellingProduct {
@@ -36,7 +40,7 @@ interface SalesInsight {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, AdminLayoutComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AdminLayoutComponent],
   template: `
     <app-admin-layout>
       <div class="row mb-4 mt-3">
@@ -125,6 +129,42 @@ interface SalesInsight {
               <div class="card-body">
                 <small class="text-muted">Tỷ lệ hủy gần đây</small>
                 <h4 class="fw-bold mb-0 text-danger">{{ recentCancellationRate | number:'1.0-1' }}%</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Doanh thu theo kỳ & tồn kho -->
+        <div class="row mb-5">
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-success border-4 h-100">
+              <div class="card-body">
+                <small class="text-muted">Doanh thu hôm nay</small>
+                <h4 class="fw-bold mb-0 text-success">{{ (revenueSummary?.today ?? 0) | number:'1.0-0' }} VNĐ</h4>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-primary border-4 h-100">
+              <div class="card-body">
+                <small class="text-muted">Doanh thu tuần</small>
+                <h4 class="fw-bold mb-0 text-primary">{{ (revenueSummary?.thisWeek ?? 0) | number:'1.0-0' }} VNĐ</h4>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-info border-4 h-100">
+              <div class="card-body">
+                <small class="text-muted">Doanh thu tháng</small>
+                <h4 class="fw-bold mb-0 text-info">{{ (revenueSummary?.thisMonth ?? 0) | number:'1.0-0' }} VNĐ</h4>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card shadow-sm border-start border-warning border-4 h-100">
+              <div class="card-body">
+                <small class="text-muted">Giá trị hàng tồn kho</small>
+                <h4 class="fw-bold mb-0 text-warning">{{ inventoryValue | number:'1.0-0' }} VNĐ</h4>
               </div>
             </div>
           </div>
@@ -261,9 +301,86 @@ interface SalesInsight {
             </div>
           </div>
         </div>
+
+        <!-- Chuỗi thời gian (biểu đồ + chọn ngày) -->
+        <div class="row mb-4" *ngIf="timeSeries">
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <h5 class="mb-0"><i class="fas fa-chart-area me-2"></i>Biểu đồ doanh thu / số đơn</h5>
+                  <select class="form-select form-select-sm w-auto" [(ngModel)]="selectedSeries">
+                    <option value="daily">Theo ngày</option>
+                    <option value="weekly">Theo tuần</option>
+                    <option value="monthly">Theo tháng</option>
+                  </select>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <div class="d-flex align-items-center gap-1">
+                    <small class="text-muted">Từ</small>
+                    <input type="date" class="form-control form-control-sm" [(ngModel)]="fromDate">
+                  </div>
+                  <div class="d-flex align-items-center gap-1">
+                    <small class="text-muted">Đến</small>
+                    <input type="date" class="form-control form-control-sm" [(ngModel)]="toDate">
+                  </div>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="exportSeriesCsv()" [disabled]="!filteredSeries.length">
+                    <i class="fas fa-file-download me-1"></i>Xuất CSV
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <ng-container *ngIf="filteredSeries.length; else noSeries">
+                  <div class="mb-3 d-flex justify-content-between flex-wrap gap-2 small text-muted">
+                    <span>Tổng doanh thu: <strong class="text-primary">{{ filteredRevenueTotal | number:'1.0-0' }} VNĐ</strong></span>
+                    <span>Tổng số đơn: <strong>{{ filteredOrderTotal }}</strong></span>
+                  </div>
+                  <div class="position-relative" style="min-height: 220px;">
+                    <svg [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight" preserveAspectRatio="xMidYMid meet" class="w-100" style="height:240px;">
+                      <defs>
+                        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stop-color="#0d6efd" stop-opacity="0.35"></stop>
+                          <stop offset="100%" stop-color="#0d6efd" stop-opacity="0"></stop>
+                        </linearGradient>
+                      </defs>
+                      <g class="chart-grid">
+                        <line *ngFor="let y of chartGridYs" [attr.x1]="chartMargin" [attr.x2]="chartWidth - chartMargin" [attr.y1]="y" [attr.y2]="y" stroke="#e9ecef" stroke-width="0.6" />
+                      </g>
+                      <polyline *ngIf="chartPolyline" [attr.points]="chartPolyline" fill="url(#revenueGradient)" stroke="none"></polyline>
+                      <polyline *ngIf="chartLine" [attr.points]="chartLine" fill="none" stroke="#0d6efd" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                      <g *ngFor="let dot of chartDots">
+                        <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3.6" fill="#0d6efd" stroke="#fff" stroke-width="1"></circle>
+                        <text [attr.x]="dot.x" [attr.y]="dot.y - 9" text-anchor="middle" class="chart-label">{{ dot.label }}</text>
+                      </g>
+                    </svg>
+                  </div>
+                  <div class="table-responsive mt-3">
+                    <table class="table table-sm mb-0">
+                      <thead class="table-light"><tr><th>Nhãn</th><th class="text-end">Doanh thu</th><th class="text-end">Số đơn</th></tr></thead>
+                      <tbody>
+                        <tr *ngFor="let row of filteredSeries">
+                          <td>{{ row.label }}</td>
+                          <td class="text-end text-primary fw-semibold">{{ row.revenue | number:'1.0-0' }}</td>
+                          <td class="text-end">{{ row.orderCount }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </ng-container>
+                <ng-template #noSeries>
+                  <div class="text-center text-muted py-4">Không có dữ liệu trong khoảng thời gian đã chọn</div>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+        </div>
       </ng-container>
     </app-admin-layout>
-  `
+  `,
+  styles: [`
+    .chart-label { font-size: 9px; fill: #495057; paint-order: stroke; stroke: #fff; stroke-width: 0.6; }
+    .chart-grid line { shape-rendering: crispEdges; }
+  `]
 })
 export class DashboardComponent implements OnInit {
   stats: DashboardStats | null = null;
@@ -275,6 +392,18 @@ export class DashboardComponent implements OnInit {
   topSellingProducts: TopSellingProduct[] = [];
   statusStats: OrderStatusStat[] = [];
   salesInsights: SalesInsight[] = [];
+  timeSeries: DashboardTimeSeries | null = null;
+  revenueSummary: DashboardRevenueSummary | null = null;
+  inventoryValue = 0;
+  selectedSeries: 'daily' | 'weekly' | 'monthly' = 'daily';
+  fromDate: string | null = null;
+  toDate: string | null = null;
+  readonly chartHeight = 180;
+  readonly chartMargin = 12;
+  get chartWidth(): number {
+    const n = Math.max(this.filteredSeries.length - 1, 1);
+    return Math.max(160, this.chartMargin * 2 + n * 60);
+  }
 
   constructor(private adminService: AdminService) {}
 
@@ -283,6 +412,9 @@ export class DashboardComponent implements OnInit {
       next: s => {
         this.stats = s;
         this.rebuildSalesReport(s);
+        this.timeSeries = s.timeSeries ?? null;
+        this.revenueSummary = s.revenueSummary ?? null;
+        this.inventoryValue = s.inventoryValue ?? 0;
         this.loading = false;
       },
       error: () => this.loading = false
@@ -441,6 +573,123 @@ export class DashboardComponent implements OnInit {
   getStatusLabel(s: string): string {
     const m: Record<string, string> = { PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', SHIPPING: 'Đang giao', DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy' };
     return m[s] || s;
+  }
+
+  get filteredSeries(): DashboardTimeSeriesRow[] {
+    const series = this.timeSeries?.[this.selectedSeries] ?? [];
+    return series.filter(row => {
+      const d = this.parseLabelToDate(row.label);
+      if (!d) return true;
+      const ts = d.getTime();
+      if (this.fromDate && ts < new Date(this.fromDate).getTime()) return false;
+      if (this.toDate && ts > new Date(this.toDate).getTime()) return false;
+      return true;
+    });
+  }
+
+  get filteredRevenueTotal(): number {
+    return this.filteredSeries.reduce((sum, r) => sum + (r.revenue || 0), 0);
+  }
+
+  get filteredOrderTotal(): number {
+    return this.filteredSeries.reduce((sum, r) => sum + (r.orderCount || 0), 0);
+  }
+
+  get chartLine(): string {
+    if (!this.filteredSeries.length) return '';
+    return this.buildPoints().map(p => `${p.x},${p.y}`).join(' ');
+  }
+
+  get chartPolyline(): string {
+    const pts = this.buildPoints();
+    if (!pts.length) return '';
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    const baseline = this.chartHeight - this.chartMargin;
+    return [`${first.x},${baseline}`, ...pts.map(p => `${p.x},${p.y}`), `${last.x},${baseline}`].join(' ');
+  }
+
+  get chartDots(): Array<{ x: number; y: number; label: string }> {
+    return this.buildPoints().map((p, idx) => ({
+      ...p,
+      label: this.filteredSeries[idx]?.orderCount != null ? String(this.filteredSeries[idx].orderCount) : ''
+    }));
+  }
+
+  get chartGridYs(): number[] {
+    const lines = 4;
+    const top = this.chartMargin;
+    const bottom = this.chartHeight - this.chartMargin;
+    const step = (bottom - top) / lines;
+    return Array.from({ length: lines + 1 }, (_, i) => bottom - i * step);
+  }
+
+  exportSeriesCsv(): void {
+    const rows = this.filteredSeries;
+    if (!rows.length) {
+      return;
+    }
+
+    const header = ['Label', 'Revenue', 'OrderCount'];
+    const lines = rows.map(r => [
+      this.escapeCsv(r.label),
+      r.revenue ?? 0,
+      r.orderCount ?? 0
+    ].join(','));
+    const csv = '\uFEFF' + [header.join(','), ...lines].join('\r\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dashboard-${this.selectedSeries}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private buildPoints(): Array<{ x: number; y: number }> {
+    const rows = this.filteredSeries;
+    if (!rows.length) return [];
+    const margin = this.chartMargin;
+    const span = Math.max(rows.length - 1, 1);
+    const xStep = (this.chartWidth - margin * 2) / span;
+    const maxRevenue = Math.max(...rows.map(r => r.revenue || 0), 1);
+    const pts: Array<{ x: number; y: number }> = [];
+    rows.forEach((r, idx) => {
+      const x = margin + idx * xStep;
+      const y = this.chartHeight - margin - (Math.max(r.revenue || 0, 0) / maxRevenue) * (this.chartHeight - margin * 2);
+      pts.push({ x, y });
+    });
+    return pts;
+  }
+
+  private escapeCsv(value: string | number | null | undefined): string {
+    const str = value == null ? '' : String(value);
+    if (/[",\n]/.test(str)) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  private parseLabelToDate(label: string): Date | null {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(label)) {
+      return new Date(label + 'T00:00:00');
+    }
+    if (/^\d{4}-W\d{2}$/.test(label)) {
+      const [yearStr, weekStr] = label.split('-W');
+      const year = Number(yearStr);
+      const week = Number(weekStr);
+      const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+      const dow = simple.getUTCDay();
+      const ISOweekStart = dow <= 4
+        ? new Date(simple.getTime() - dow * 86400000)
+        : new Date(simple.getTime() + (7 - dow) * 86400000);
+      return ISOweekStart;
+    }
+    if (/^\d{4}-\d{2}$/.test(label)) {
+      return new Date(label + '-01T00:00:00');
+    }
+    return null;
   }
 }
 
