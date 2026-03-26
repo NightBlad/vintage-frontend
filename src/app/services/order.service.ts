@@ -28,9 +28,10 @@ export class OrderService {
   }
 
   // Admin
-  adminGetAll(page = 0, size = 10, status?: string): Observable<Page<Order>> {
+  adminGetAll(page = 0, size = 10, status?: string, q?: string): Observable<Page<Order>> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (status) params = params.set('status', status);
+    if (q) params = params.set('q', q);
     return this.http.get<Page<Order>>(`${environment.apiUrl}/admin/orders`, { params });
   }
 

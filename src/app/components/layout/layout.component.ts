@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { CartService } from '../../services/cart.service';
 
@@ -48,7 +48,7 @@ import { CartService } from '../../services/cart.service';
             <!-- Search -->
             <form class="header-search d-flex me-3" (ngSubmit)="onSearch()">
               <div class="position-relative">
-                <input class="search-input" type="search" placeholder="Tìm sản phẩm..." [(ngModel)]="searchQuery" name="search">
+                <input class="search-input" type="search" placeholder="Tìm sản phẩm..." [(ngModel)]="searchQuery" (ngModelChange)="onSearchInput()" name="search">
                 <button type="submit" class="btn btn-link position-absolute end-0 top-50 translate-middle-y pe-2">
                   <i class="fas fa-search text-muted"></i>
                 </button>
@@ -146,28 +146,51 @@ import { CartService } from '../../services/cart.service';
 })
 export class LayoutComponent implements OnInit {
   searchQuery = '';
+  private searchDebounceHandle: ReturnType<typeof setTimeout> | null = null;
+  private readonly searchDebounceMs = 350;
 
   constructor(
     public authService: AuthService,
     public cartService: CartService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
     if (this.authService.isLoggedIn) {
       this.cartService.refreshCount();
     }
+    this.route.queryParams.subscribe(params => {
+      const qParam = params['q'];
+      this.searchQuery = typeof qParam === 'string' ? qParam : '';
+    });
   }
 
   onSearch(): void {
-    if (this.searchQuery.trim()) {
-      this.router.navigate(['/search'], { queryParams: { q: this.searchQuery.trim() } });
-      this.searchQuery = '';
+    if (this.searchDebounceHandle) {
+      clearTimeout(this.searchDebounceHandle);
+      this.searchDebounceHandle = null;
     }
+    this.navigateToSearch(this.searchQuery.trim());
+  }
+
+  onSearchInput(): void {
+    if (this.searchDebounceHandle) {
+      clearTimeout(this.searchDebounceHandle);
+    }
+    this.searchDebounceHandle = setTimeout(() => {
+      this.navigateToSearch(this.searchQuery.trim());
+    }, this.searchDebounceMs);
   }
 
   logout(): void {
     this.authService.logout();
+  }
+
+  private navigateToSearch(keyword: string): void {
+    const queryParams = keyword ? { q: keyword } : {};
+    this.searchQuery = keyword;
+    this.router.navigate(['/search'], { queryParams });
   }
 }
 

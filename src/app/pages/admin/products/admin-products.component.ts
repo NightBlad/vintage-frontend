@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -25,6 +26,23 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
         </div>
       </div>
 
+      <div class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-6 col-lg-4">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" class="form-control" placeholder="Tìm theo tên, mã sản phẩm, mô tả" [(ngModel)]="searchTerm" (ngModelChange)="applySearch()" (keyup.enter)="applySearch()">
+                <button class="btn btn-outline-secondary" (click)="clearSearch()" [disabled]="!searchTerm">Xóa</button>
+              </div>
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-primary btn-sm w-100" (click)="applySearch()"><i class="fas fa-filter me-1"></i>Lọc</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card shadow-sm">
         <div class="card-body">
           <div class="text-center py-5" *ngIf="loading">
@@ -33,7 +51,7 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
 
           <div *ngIf="!loading">
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table table-sm align-middle table-stacked">
                 <thead class="table-light">
                   <tr>
                     <th width="60">Ảnh</th>
@@ -48,32 +66,32 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                 </thead>
                 <tbody>
                   <tr *ngFor="let p of page?.content">
-                    <td>
+                    <td data-label="Ảnh">
                       <img [src]="getImageUrl(p.imageUrl)" class="rounded" width="45" height="45" style="object-fit:cover" alt="" (error)="onImageError($event)">
                     </td>
-                    <td>
-                      <div class="fw-medium">{{ p.name }}</div>
-                      <small class="text-muted">{{ p.manufacturer }}</small>
-                    </td>
-                    <td><code>{{ p.productCode }}</code></td>
-                    <td>{{ p.category?.name || '—' }}</td>
-                    <td class="text-end">
+                     <td data-label="Tên sản phẩm">
+                       <div class="fw-medium" [innerHTML]="highlight(p.name)"></div>
+                       <small class="text-muted" [innerHTML]="highlight(p.manufacturer)"></small>
+                     </td>
+                     <td data-label="Mã SP"><code [innerHTML]="highlight(p.productCode)"></code></td>
+                    <td data-label="Danh mục">{{ p.category?.name || '—' }}</td>
+                    <td class="text-end" data-label="Giá">
                       <span *ngIf="p.salePrice" class="text-danger fw-bold">{{ p.salePrice | number:'1.0-0' }} ₫</span>
                       <span [class]="p.salePrice ? 'text-muted text-decoration-line-through ms-1 small' : 'fw-bold text-primary'">
                         {{ p.price | number:'1.0-0' }} ₫
                       </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Tồn kho">
                       <span class="badge" [ngClass]="p.stockQuantity <= 10 ? 'bg-danger' : p.stockQuantity <= 50 ? 'bg-warning text-dark' : 'bg-success'">
                         {{ p.stockQuantity }}
                       </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Trạng thái">
                       <span class="badge" [ngClass]="p.active ? 'bg-success' : 'bg-secondary'">
                         {{ p.active ? 'Hoạt động' : 'Ẩn' }}
                       </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Thao tác">
                       <a [routerLink]="['/admin/products', p.id, 'edit']" class="btn btn-primary btn-sm me-1">
                         <i class="fas fa-edit"></i>
                       </a>
@@ -114,8 +132,10 @@ export class AdminProductsComponent implements OnInit {
   page: Page<Product> | null = null;
   loading = true;
   currentPage = 0;
+  searchTerm = '';
+  private _searchDebounce: any;
 
-  constructor(private productService: ProductService) {}
+  constructor(private productService: ProductService, private sanitizer: DomSanitizer) {}
 
   ngOnInit(): void {
     this.loadPage(0);
@@ -124,10 +144,33 @@ export class AdminProductsComponent implements OnInit {
   loadPage(p: number): void {
     this.loading = true;
     this.currentPage = p;
-    this.productService.adminGetAll(p, 10).subscribe({
+    const q = this.searchTerm ? this.searchTerm.trim() : undefined;
+    this.productService.adminGetAll(p, 10, q).subscribe({
       next: data => { this.page = data; this.loading = false; },
       error: () => this.loading = false
     });
+  }
+
+  applySearch(): void {
+    if (this._searchDebounce) {
+      clearTimeout(this._searchDebounce);
+    }
+    this._searchDebounce = setTimeout(() => this.loadPage(0), 250);
+  }
+
+  clearSearch(): void {
+    if (!this.searchTerm) return;
+    this.searchTerm = '';
+    this.loadPage(0);
+  }
+
+  highlight(value: string | number | undefined | null): SafeHtml {
+    const text = value == null ? '' : String(value);
+    if (!this.searchTerm) return text;
+    const escaped = this.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'gi');
+    const html = text.replace(re, match => `<mark>${match}</mark>`);
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   deleteProduct(p: Product): void {

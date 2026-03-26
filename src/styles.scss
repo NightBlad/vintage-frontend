@@ -420,3 +420,34 @@ body {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Mobile-friendly tables: stack rows into cards on narrow screens */
+@media (max-width: 767.98px) {
+  .table-stacked thead { display: none; }
+  .table-stacked tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+  .table-stacked tbody td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0.6rem 0.9rem;
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    align-items: center;
+  }
+  .table-stacked tbody td:first-child { border-top: none; }
+  .table-stacked tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #475569;
+  }
+  .table-stacked .btn { white-space: nowrap; }
+  .table-stacked .badge { width: max-content; }
+}
+

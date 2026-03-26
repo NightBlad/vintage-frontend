@@ -14,8 +14,9 @@ export class AdminService {
     return this.http.get<DashboardStats>(`${this.base}/dashboard`);
   }
 
-  getUsers(page = 0, size = 10): Observable<Page<User>> {
-    const params = new HttpParams().set('page', page).set('size', size);
+  getUsers(page = 0, size = 10, q?: string): Observable<Page<User>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (q) params = params.set('q', q);
     return this.http.get<Page<User>>(`${this.base}/users`, { params });
   }
 

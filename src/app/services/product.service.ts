@@ -27,7 +27,10 @@ export class ProductService {
     );
   }
   search(query: string, page = 0, size = 12): Observable<Page<Product>> {
-    const params = new HttpParams().set('q', query).set('page', page).set('size', size);
+    const params = new HttpParams()
+      .set('keyword', query)
+      .set('page', page)
+      .set('size', size);
     return this.http.get<any>(`${environment.apiUrl}/search`, { params }).pipe(
       map(response => this.normalizePage<Product>(response, page, size))
     );
@@ -42,8 +45,9 @@ export class ProductService {
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${environment.apiUrl}/admin/products/${id}`);
   }
-  adminGetAll(page = 0, size = 10): Observable<Page<Product>> {
-    const params = new HttpParams().set('page', page).set('size', size);
+  adminGetAll(page = 0, size = 10, q?: string): Observable<Page<Product>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (q) params = params.set('q', q);
     return this.http.get<any>(`${environment.apiUrl}/admin/products`, { params }).pipe(
       map(response => this.normalizePage<Product>(response, page, size))
     );

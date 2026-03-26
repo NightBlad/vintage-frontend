@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { AdminService } from '../../../services/admin.service';
 import { User, Page } from '../../../models/models';
@@ -15,6 +16,23 @@ import { User, Page } from '../../../models/models';
         <div class="col-12">
           <h2 class="fw-bold"><i class="fas fa-users me-2"></i>Quản lý người dùng</h2>
           <p class="text-muted mb-0">Danh sách tài khoản trong hệ thống</p>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-6 col-lg-4">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" class="form-control" placeholder="Tìm theo tên đăng nhập, họ tên, email, SĐT" [(ngModel)]="searchTerm" (ngModelChange)="applySearch()" (keyup.enter)="applySearch()">
+                <button class="btn btn-outline-secondary" (click)="clearSearch()" [disabled]="!searchTerm">Xóa</button>
+              </div>
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-primary btn-sm w-100" (click)="applySearch()"><i class="fas fa-filter me-1"></i>Lọc</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -75,7 +93,7 @@ import { User, Page } from '../../../models/models';
             </div>
 
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table table-sm align-middle table-stacked">
                 <thead class="table-light">
                   <tr>
                     <th>#</th>
@@ -90,23 +108,23 @@ import { User, Page } from '../../../models/models';
                 </thead>
                 <tbody>
                   <tr *ngFor="let u of page?.content; let i = index">
-                    <td>{{ (currentPage * 10) + i + 1 }}</td>
-                    <td><code>{{ u.username }}</code></td>
-                    <td>{{ u.fullName }}</td>
-                    <td>{{ u.email }}</td>
-                    <td>{{ u.phone || '—' }}</td>
-                    <td class="text-center">
+                    <td data-label="STT">{{ (currentPage * 10) + i + 1 }}</td>
+                    <td data-label="Tên đăng nhập"><code [innerHTML]="highlight(u.username)"></code></td>
+                    <td data-label="Họ tên" [innerHTML]="highlight(u.fullName)"></td>
+                    <td data-label="Email" [innerHTML]="highlight(u.email)"></td>
+                    <td data-label="SĐT" [innerHTML]="highlight(u.phone || '—')"></td>
+                    <td class="text-center" data-label="Vai trò">
                       <span *ngFor="let r of u.roles" class="badge me-1" [ngClass]="r === 'ROLE_ADMIN' ? 'bg-danger' : r === 'ROLE_STAFF' ? 'bg-info' : 'bg-primary'">
                         {{ roleLabel(r) }}
                       </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Trạng thái">
                       <span class="badge" [ngClass]="u.accountLocked ? 'bg-danger' : 'bg-success'">
                         <i class="fas" [class]="u.accountLocked ? 'fa-user-lock' : 'fa-check-circle'"></i>
                         {{ u.accountLocked ? ' Bị khóa' : ' Hoạt động' }}
                       </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Thao tác">
                       <button class="btn btn-sm btn-outline-primary me-1" (click)="startEdit(u)" title="Sửa thông tin">
                         <i class="fas fa-edit"></i>
                       </button>
@@ -167,8 +185,11 @@ export class AdminUsersComponent implements OnInit {
   editingUser: User | null = null;
   editModel: Partial<User> = {};
   saving = false;
+  searchTerm = '';
 
-  constructor(private adminService: AdminService) {}
+  private _searchDebounce: any;
+
+  constructor(private adminService: AdminService, private sanitizer: DomSanitizer) {}
 
   ngOnInit(): void {
     this.loadPage(0);
@@ -177,7 +198,8 @@ export class AdminUsersComponent implements OnInit {
   loadPage(p: number): void {
     this.loading = true;
     this.currentPage = p;
-    this.adminService.getUsers(p, 10).subscribe({
+    const q = this.searchTerm ? this.searchTerm.trim() : undefined;
+    this.adminService.getUsers(p, 10, q).subscribe({
       next: data => {
         this.page = data;
         this.loading = false; },
@@ -185,6 +207,28 @@ export class AdminUsersComponent implements OnInit {
         this.error = 'Tải danh sách người dùng thất bại';
         this.loading = false; }
     });
+  }
+
+    applySearch(): void {
+      if (this._searchDebounce) {
+        clearTimeout(this._searchDebounce);
+      }
+      this._searchDebounce = setTimeout(() => this.loadPage(0), 250);
+    }
+
+  clearSearch(): void {
+    if (!this.searchTerm) return;
+    this.searchTerm = '';
+    this.loadPage(0);
+  }
+
+  highlight(value: string | number | undefined | null): SafeHtml {
+    const text = value == null ? '' : String(value);
+    if (!this.searchTerm) return text;
+    const escaped = this.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'gi');
+    const html = text.replace(re, match => `<mark>${match}</mark>`);
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   isAdmin(u: any): boolean {

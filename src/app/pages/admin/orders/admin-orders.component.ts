@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -22,14 +23,23 @@ import { Order, Page } from '../../../models/models';
       <!-- Filter Bar -->
       <div class="card shadow-sm mb-4">
         <div class="card-body py-2">
-          <div class="d-flex flex-wrap gap-2 align-items-center">
-            <span class="fw-medium me-2">Lọc trạng thái:</span>
-            <button class="btn btn-sm" [ngClass]="currentStatus === '' ? 'btn-primary' : 'btn-outline-secondary'" (click)="filterStatus('')">Tất cả</button>
-            <button class="btn btn-sm" [ngClass]="currentStatus === 'PENDING' ? 'btn-warning' : 'btn-outline-warning'" (click)="filterStatus('PENDING')">Chờ xác nhận</button>
-            <button class="btn btn-sm" [ngClass]="currentStatus === 'CONFIRMED' ? 'btn-info' : 'btn-outline-info'" (click)="filterStatus('CONFIRMED')">Đã xác nhận</button>
-            <button class="btn btn-sm" [ngClass]="currentStatus === 'SHIPPING' ? 'btn-primary' : 'btn-outline-primary'" (click)="filterStatus('SHIPPING')">Đang giao</button>
-            <button class="btn btn-sm" [ngClass]="currentStatus === 'DELIVERED' ? 'btn-success' : 'btn-outline-success'" (click)="filterStatus('DELIVERED')">Đã giao</button>
-            <button class="btn btn-sm" [ngClass]="currentStatus === 'CANCELLED' ? 'btn-danger' : 'btn-outline-danger'" (click)="filterStatus('CANCELLED')">Đã hủy</button>
+          <div class="row g-2 align-items-center">
+            <div class="col-lg-8 d-flex flex-wrap gap-2 align-items-center">
+              <span class="fw-medium me-2">Lọc trạng thái:</span>
+              <button class="btn btn-sm" [ngClass]="currentStatus === '' ? 'btn-primary' : 'btn-outline-secondary'" (click)="filterStatus('')">Tất cả</button>
+              <button class="btn btn-sm" [ngClass]="currentStatus === 'PENDING' ? 'btn-warning' : 'btn-outline-warning'" (click)="filterStatus('PENDING')">Chờ xác nhận</button>
+              <button class="btn btn-sm" [ngClass]="currentStatus === 'CONFIRMED' ? 'btn-info' : 'btn-outline-info'" (click)="filterStatus('CONFIRMED')">Đã xác nhận</button>
+              <button class="btn btn-sm" [ngClass]="currentStatus === 'SHIPPING' ? 'btn-primary' : 'btn-outline-primary'" (click)="filterStatus('SHIPPING')">Đang giao</button>
+              <button class="btn btn-sm" [ngClass]="currentStatus === 'DELIVERED' ? 'btn-success' : 'btn-outline-success'" (click)="filterStatus('DELIVERED')">Đã giao</button>
+              <button class="btn btn-sm" [ngClass]="currentStatus === 'CANCELLED' ? 'btn-danger' : 'btn-outline-danger'" (click)="filterStatus('CANCELLED')">Đã hủy</button>
+            </div>
+            <div class="col-lg-4">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" class="form-control" placeholder="Tìm theo mã đơn, tên, SĐT" [(ngModel)]="searchTerm" (ngModelChange)="applySearch()" (keyup.enter)="applySearch()">
+                <button class="btn btn-outline-secondary" (click)="clearSearch()" [disabled]="!searchTerm">Xóa</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -42,7 +52,7 @@ import { Order, Page } from '../../../models/models';
 
           <div *ngIf="!loading">
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table table-sm align-middle table-stacked">
                 <thead class="table-light">
                   <tr>
                     <th>Mã đơn</th>
@@ -57,20 +67,20 @@ import { Order, Page } from '../../../models/models';
                 </thead>
                 <tbody>
                   <tr *ngFor="let o of page?.content">
-                    <td><a [routerLink]="['/admin/orders', o.id]" class="fw-medium">#{{ o.orderNumber }}</a></td>
-                    <td>{{ o.customerName }}</td>
-                    <td>{{ o.customerPhone }}</td>
-                    <td>{{ o.orderDate | date:'dd/MM/yyyy HH:mm' }}</td>
-                    <td class="text-end fw-bold text-primary">{{ o.totalAmount | number:'1.0-0' }} ₫</td>
-                    <td class="text-center">
+                    <td data-label="Mã đơn"><a [routerLink]="['/admin/orders', o.id]" class="fw-medium" [innerHTML]="highlight('#' + o.orderNumber)"></a></td>
+                    <td data-label="Khách hàng" [innerHTML]="highlight(o.customerName)"></td>
+                    <td data-label="SĐT" [innerHTML]="highlight(o.customerPhone)"></td>
+                    <td data-label="Ngày đặt">{{ o.orderDate | date:'dd/MM/yyyy HH:mm' }}</td>
+                    <td class="text-end fw-bold text-primary" data-label="Tổng tiền">{{ o.totalAmount | number:'1.0-0' }} ₫</td>
+                    <td class="text-center" data-label="Thanh toán">
                       <span class="badge" [ngClass]="o.paymentStatus === 'PAID' ? 'bg-success' : 'bg-warning text-dark'">
                         {{ o.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán' }}
                       </span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Trạng thái">
                       <span class="badge" [ngClass]="getStatusClass(o.status)">{{ getStatusLabel(o.status) }}</span>
                     </td>
-                    <td class="text-center">
+                    <td class="text-center" data-label="Thao tác">
                       <a [routerLink]="['/admin/orders', o.id]" class="btn btn-primary btn-sm">
                         <i class="fas fa-eye"></i>
                       </a>
@@ -108,8 +118,10 @@ export class AdminOrdersComponent implements OnInit {
   loading = true;
   currentPage = 0;
   currentStatus = '';
+  searchTerm = '';
+  private _searchDebounce: any;
 
-  constructor(private orderService: OrderService) {}
+  constructor(private orderService: OrderService, private sanitizer: DomSanitizer) {}
 
   ngOnInit(): void {
     this.loadPage(0);
@@ -118,7 +130,8 @@ export class AdminOrdersComponent implements OnInit {
   loadPage(p: number): void {
     this.loading = true;
     this.currentPage = p;
-    this.orderService.adminGetAll(p, 10, this.currentStatus || undefined).subscribe({
+    const q = this.searchTerm ? this.searchTerm.trim() : undefined;
+    this.orderService.adminGetAll(p, 10, this.currentStatus || undefined, q).subscribe({
       next: data => { this.page = data; this.loading = false; },
       error: () => this.loading = false
     });
@@ -127,6 +140,28 @@ export class AdminOrdersComponent implements OnInit {
   filterStatus(status: string): void {
     this.currentStatus = status;
     this.loadPage(0);
+  }
+
+  applySearch(): void {
+    if (this._searchDebounce) {
+      clearTimeout(this._searchDebounce);
+    }
+    this._searchDebounce = setTimeout(() => this.loadPage(0), 250);
+  }
+
+  clearSearch(): void {
+    if (!this.searchTerm) return;
+    this.searchTerm = '';
+    this.loadPage(0);
+  }
+
+   highlight(value: string | number | undefined | null): SafeHtml {
+    const text = value == null ? '' : String(value);
+    if (!this.searchTerm) return text;
+    const escaped = this.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'gi');
+    const html = text.replace(re, match => `<mark>${match}</mark>`);
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   getPages(): number[] {
