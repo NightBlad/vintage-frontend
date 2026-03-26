@@ -451,3 +451,24 @@ body {
   .table-stacked .badge { width: max-content; }
 }
 
+/* Active navigation item highlight */
+.main-header .navbar-nav .nav-link {
+  position: relative;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.main-header .navbar-nav .nav-link.active {
+  font-weight: 600;
+  color: #0d6efd !important;
+}
+
+.main-header .navbar-nav .nav-link.active::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0;
+  height: 3px;
+  border-radius: 999px;
+  background-color: #0d6efd;
+}

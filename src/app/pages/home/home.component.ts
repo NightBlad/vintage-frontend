@@ -38,44 +38,7 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-
           </div>
         </div>
       </section>
-      <!-- Features -->
-      <section class="py-5">
-        <div class="container">
-          <div class="row text-center mb-5">
-            <h2 class="display-5 fw-bold text-primary"><i class="fas fa-star me-2"></i>Tại sao chọn chúng tôi?</h2>
-            <p class="lead text-muted">Cam kết mang đến những sản phẩm tốt nhất cho sức khỏe của bạn</p>
-          </div>
-          <div class="row g-4">
-            <div class="col-md-4">
-              <div class="card h-100 text-center shadow-sm">
-                <div class="card-body p-4">
-                  <i class="fas fa-shield-alt fa-3x text-success mb-3"></i>
-                  <h5 class="fw-bold">Chất lượng đảm bảo</h5>
-                  <p class="text-muted">Tất cả sản phẩm được kiểm định chất lượng nghiêm ngặt từ các nhà sản xuất uy tín.</p>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="card h-100 text-center shadow-sm">
-                <div class="card-body p-4">
-                  <i class="fas fa-shipping-fast fa-3x text-primary mb-3"></i>
-                  <h5 class="fw-bold">Giao hàng nhanh chóng</h5>
-                  <p class="text-muted">Đội ngũ giao hàng chuyên nghiệp, cam kết giao hàng trong 24h tại nội thành.</p>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="card h-100 text-center shadow-sm">
-                <div class="card-body p-4">
-                  <i class="fas fa-user-md fa-3x text-info mb-3"></i>
-                  <h5 class="fw-bold">Tư vấn chuyên nghiệp</h5>
-                  <p class="text-muted">Đội ngũ dược sĩ giàu kinh nghiệm sẵn sàng tư vấn và hỗ trợ 24/7.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+
       <!-- Featured Products -->
       <section class="py-5 bg-light">
         <div class="container">
@@ -132,6 +95,7 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-
           </div>
         </div>
       </section>
+
       <!-- Categories -->
       <section class="py-5" *ngIf="categories.length > 0">
         <div class="container">
@@ -144,6 +108,45 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../utils/product-
                 <i class="fas fa-pills text-primary fa-2x mb-2"></i>
                 <div class="fw-medium">{{ cat.name }}</div>
               </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Features: Tại sao chọn chúng tôi? -->
+      <section class="py-5">
+        <div class="container">
+          <div class="row text-center mb-5">
+            <h2 class="display-5 fw-bold text-primary"><i class="fas fa-star me-2"></i>Tại sao chọn chúng tôi?</h2>
+            <p class="lead text-muted">Cam kết mang đến những sản phẩm tốt nhất cho sức khỏe của bạn</p>
+          </div>
+          <div class="row g-4">
+            <div class="col-md-4">
+              <div class="card h-100 text-center shadow-sm">
+                <div class="card-body p-4">
+                  <i class="fas fa-shield-alt fa-3x text-success mb-3"></i>
+                  <h5 class="fw-bold">Chất lượng đảm bảo</h5>
+                  <p class="text-muted">Tất cả sản phẩm được kiểm định chất lượng nghiêm ngặt từ các nhà sản xuất uy tín.</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card h-100 text-center shadow-sm">
+                <div class="card-body p-4">
+                  <i class="fas fa-shipping-fast fa-3x text-primary mb-3"></i>
+                  <h5 class="fw-bold">Giao hàng nhanh chóng</h5>
+                  <p class="text-muted">Đội ngũ giao hàng chuyên nghiệp, cam kết giao hàng trong 24h tại nội thành.</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card h-100 text-center shadow-sm">
+                <div class="card-body p-4">
+                  <i class="fas fa-user-md fa-3x text-info mb-3"></i>
+                  <h5 class="fw-bold">Tư vấn chuyên nghiệp</h5>
+                  <p class="text-muted">Đội ngũ dược sĩ giàu kinh nghiệm sẵn sàng tư vấn và hỗ trợ 24/7.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
