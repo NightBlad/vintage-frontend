@@ -157,7 +157,9 @@ export class CheckoutComponent implements OnInit {
   ngOnInit(): void {
     const user = this.authService.currentUser;
     if (user) {
-      this.form.fullName = user.fullName;
+      this.form.fullName = user.fullName || '';
+      this.form.phone = user.phone || '';
+      this.form.address = user.address || '';
     }
     this.cartService.getCart().subscribe({
       next: (c: CartSummary) => { this.cart = c; this.loading = false; if (!c.items.length) this.router.navigate(['/cart']); },

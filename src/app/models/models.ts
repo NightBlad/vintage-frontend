@@ -129,6 +129,8 @@ export interface AuthResponse {
   fullName: string;
   email: string;
   roles: string[];
+  phone?: string;
+  address?: string;
 }
 
 export interface LoginRequest {
@@ -222,4 +224,3 @@ export interface ChatMessage {
   content: string;
   timestamp?: Date;
 }
-
