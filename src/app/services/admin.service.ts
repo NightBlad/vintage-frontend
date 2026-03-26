@@ -34,5 +34,8 @@ export class AdminService {
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/users/${id}`);
   }
-}
 
+  updateUser(id: number, payload: Partial<User>): Observable<User> {
+    return this.http.put<User>(`${this.base}/users/${id}`, payload);
+  }
+}

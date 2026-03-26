@@ -25,6 +25,55 @@ import { User, Page } from '../../../models/models';
           </div>
 
           <div *ngIf="!loading">
+            <div class="alert alert-success" *ngIf="successMessage">{{ successMessage }}</div>
+            <div class="alert alert-danger" *ngIf="error && !loading">{{ error }}</div>
+
+            <div class="card border-primary mb-3" *ngIf="editingUser">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <div><i class="fas fa-user-edit me-2"></i>Chỉnh sửa tài khoản: <strong>{{ editingUser?.username }}</strong></div>
+                <button class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()"><i class="fas fa-times"></i> Đóng</button>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Họ tên</label>
+                    <input type="text" class="form-control" [(ngModel)]="editModel.fullName" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" [(ngModel)]="editModel.email" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">SĐT</label>
+                    <input type="text" class="form-control" [(ngModel)]="editModel.phone">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Địa chỉ</label>
+                    <input type="text" class="form-control" [(ngModel)]="editModel.address">
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check form-switch mt-4">
+                      <input class="form-check-input" type="checkbox" id="enabledSwitch" [(ngModel)]="editModel.enabled" [disabled]="isAdmin(editingUser)">
+                      <label class="form-check-label" for="enabledSwitch">Kích hoạt</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check form-switch mt-4">
+                      <input class="form-check-input" type="checkbox" id="lockSwitch" [(ngModel)]="editModel.accountLocked" [disabled]="isAdmin(editingUser)">
+                      <label class="form-check-label" for="lockSwitch">Khóa đăng nhập</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-3 text-end">
+                  <button class="btn btn-secondary me-2" (click)="cancelEdit()">Hủy</button>
+                  <button class="btn btn-primary" (click)="saveEdit()" [disabled]="saving">
+                    <span *ngIf="saving" class="spinner-border spinner-border-sm me-1"></span>
+                    Lưu thay đổi
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div class="table-responsive">
               <table class="table align-middle">
                 <thead class="table-light">
@@ -47,8 +96,8 @@ import { User, Page } from '../../../models/models';
                     <td>{{ u.email }}</td>
                     <td>{{ u.phone || '—' }}</td>
                     <td class="text-center">
-                      <span *ngFor="let r of u.roles" class="badge me-1" [ngClass]="r === 'ROLE_ADMIN' ? 'bg-danger' : 'bg-primary'">
-                        {{ r === 'ROLE_ADMIN' ? 'Admin' : 'User' }}
+                      <span *ngFor="let r of u.roles" class="badge me-1" [ngClass]="r === 'ROLE_ADMIN' ? 'bg-danger' : r === 'ROLE_STAFF' ? 'bg-info' : 'bg-primary'">
+                        {{ roleLabel(r) }}
                       </span>
                     </td>
                     <td class="text-center">
@@ -58,6 +107,10 @@ import { User, Page } from '../../../models/models';
                       </span>
                     </td>
                     <td class="text-center">
+                      <button class="btn btn-sm btn-outline-primary me-1" (click)="startEdit(u)" title="Sửa thông tin">
+                        <i class="fas fa-edit"></i>
+                      </button>
+
                       <button class="btn btn-sm me-1"
                               [ngClass]="u.accountLocked ? 'btn-success' : 'btn-warning'"
                               (click)="toggleLock(u)"
@@ -110,6 +163,10 @@ export class AdminUsersComponent implements OnInit {
   loading = true;
   currentPage = 0;
   error = '';
+  successMessage = '';
+  editingUser: User | null = null;
+  editModel: Partial<User> = {};
+  saving = false;
 
   constructor(private adminService: AdminService) {}
 
@@ -173,6 +230,75 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
+  startEdit(u: User): void {
+    this.error = '';
+    this.successMessage = '';
+    this.editingUser = null;
+    this.adminService.getUserById(u.id).subscribe({
+      next: user => {
+        this.editingUser = user;
+        this.editModel = {
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone || '',
+          address: user.address || '',
+          enabled: user.enabled,
+          accountLocked: user.accountLocked
+        };
+      },
+      error: () => {
+        this.error = 'Không tải được chi tiết người dùng';
+      }
+    });
+  }
+
+  saveEdit(): void {
+    if (!this.editingUser) return;
+    if (!this.editModel.fullName || this.editModel.fullName.trim().length < 2) {
+      this.error = 'Họ tên phải có ít nhất 2 ký tự';
+      return;
+    }
+    if (!this.editModel.email || !/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(this.editModel.email)) {
+      this.error = 'Email không hợp lệ';
+      return;
+    }
+
+    const payload: Partial<User> = {
+      fullName: this.editModel.fullName.trim(),
+      email: this.editModel.email.trim(),
+      phone: this.editModel.phone || '',
+      address: this.editModel.address || '',
+      enabled: this.isAdmin(this.editingUser) ? true : this.editModel.enabled,
+      accountLocked: this.isAdmin(this.editingUser) ? false : this.editModel.accountLocked
+    };
+
+    this.saving = true;
+    this.adminService.updateUser(this.editingUser.id, payload).subscribe({
+      next: user => {
+        this.saving = false;
+        this.successMessage = 'Cập nhật người dùng thành công';
+        this.error = '';
+        this.editingUser = null;
+        if (this.page && this.page.content) {
+          const idx = this.page.content.findIndex(x => x.id === user.id);
+          if (idx !== -1) {
+            this.page.content[idx] = { ...this.page.content[idx], ...user } as User;
+          }
+        }
+      },
+      error: (err) => {
+        this.saving = false;
+        this.error = err?.error?.error || 'Không thể cập nhật người dùng';
+      }
+    });
+  }
+
+
+  cancelEdit(): void {
+    this.editingUser = null;
+    this.editModel = {};
+  }
+
   deleteUser(u: User): void {
     if (this.isAdmin(u)) {
       alert('Không thể xóa tài khoản Quản trị viên!');
@@ -186,8 +312,16 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
+  roleLabel(role: string): string {
+    if (role === 'ROLE_ADMIN') return 'Admin';
+    if (role === 'ROLE_STAFF') return 'Nhân viên';
+    return 'User';
+  }
+
   getPages(): number[] {
     if (!this.page) return [];
     return Array.from({ length: this.page.totalPages }, (_, i) => i);
   }
+
 }
+
