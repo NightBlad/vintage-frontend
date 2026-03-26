@@ -145,7 +145,8 @@ export class AdminCategoriesComponent implements OnInit {
   load(): void {
     this.loading = true;
     this.error = '';
-    this.categoryService.getAll().subscribe({
+    // Dùng API admin để có productCount
+    this.categoryService.getAllAdmin().subscribe({
       next: data => {
         this.mainCategories = data.filter(c => c.isMainCategory);
         this.loading = false;
@@ -170,4 +171,3 @@ export class AdminCategoriesComponent implements OnInit {
     });
   }
 }
-

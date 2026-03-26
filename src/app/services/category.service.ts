@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { Category } from '../models/models';
 import { environment } from '../../environments/environment';
@@ -7,11 +7,18 @@ import { environment } from '../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class CategoryService {
   private apiUrl = `${environment.apiUrl}/categories`;
+  private adminApiUrl = `${environment.apiUrl}/admin/categories`;
 
   constructor(private http: HttpClient) {}
 
+  // Public categories (for storefront)
   getAll(): Observable<Category[]> {
     return this.http.get<Category[]>(this.apiUrl);
+  }
+
+  // Admin categories (with productCount, subCategories, etc.)
+  getAllAdmin(): Observable<Category[]> {
+    return this.http.get<Category[]>(this.adminApiUrl);
   }
 
   getById(id: number): Observable<Category> {
@@ -69,4 +76,3 @@ export class CategoryService {
     return this.http.delete<void>(`${environment.apiUrl}/admin/categories/${id}`);
   }
 }
-
