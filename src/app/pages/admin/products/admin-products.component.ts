@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { ProductService } from '../../../services/product.service';
@@ -137,16 +137,41 @@ export class AdminProductsComponent implements OnInit {
   searchTerm = '';
   private _searchDebounce: any;
 
-  constructor(private productService: ProductService, private sanitizer: DomSanitizer) {}
+  constructor(
+    private productService: ProductService,
+    private sanitizer: DomSanitizer,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
-    this.loadPage(0);
+    // Nếu có query param ?search=... (nhảy từ Dashboard), auto set searchTerm và load trang 0
+    this.route.queryParamMap.subscribe(params => {
+      const q = (params.get('search') || '').trim();
+      if (q) {
+        this.searchTerm = q;
+        this.loadPage(0, true);
+      } else if (!this.page) {
+        // Lần đầu vào mà không có search -> load bình thường
+        this.loadPage(0, true);
+      }
+    });
   }
 
-  loadPage(p: number): void {
+  loadPage(p: number, fromInit: boolean = false): void {
     this.loading = true;
     this.currentPage = p;
     const q = this.searchTerm ? this.searchTerm.trim() : undefined;
+
+    // Đồng bộ lại URL với query param search để khi F5 vẫn giữ filter
+    if (!fromInit) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { search: q || null },
+        queryParamsHandling: 'merge'
+      });
+    }
+
     this.productService.adminGetAll(p, 10, q).subscribe({
       next: data => { this.page = data; this.loading = false; },
       error: () => this.loading = false

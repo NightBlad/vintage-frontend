@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { AdminLayoutComponent } from '../../../components/admin-layout/admin-layout.component';
 import { OrderService } from '../../../services/order.service';
 import { Order, Page } from '../../../models/models';
@@ -10,7 +10,7 @@ import { Order, Page } from '../../../models/models';
 @Component({
   selector: 'app-admin-orders',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, AdminLayoutComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AdminLayoutComponent],
   template: `
     <app-admin-layout>
       <div class="row mb-4 mt-3">
@@ -26,12 +26,12 @@ import { Order, Page } from '../../../models/models';
           <div class="row g-2 align-items-center">
             <div class="col-lg-8 d-flex flex-wrap gap-2 align-items-center">
               <span class="fw-medium me-2">Lọc trạng thái:</span>
-              <button class="btn btn-sm" [ngClass]="currentStatus === '' ? 'btn-primary' : 'btn-outline-secondary'" (click)="filterStatus('')">Tất cả</button>
-              <button class="btn btn-sm" [ngClass]="currentStatus === 'PENDING' ? 'btn-warning' : 'btn-outline-warning'" (click)="filterStatus('PENDING')">Chờ xác nhận</button>
-              <button class="btn btn-sm" [ngClass]="currentStatus === 'CONFIRMED' ? 'btn-info' : 'btn-outline-info'" (click)="filterStatus('CONFIRMED')">Đã xác nhận</button>
-              <button class="btn btn-sm" [ngClass]="currentStatus === 'SHIPPING' ? 'btn-primary' : 'btn-outline-primary'" (click)="filterStatus('SHIPPING')">Đang giao</button>
-              <button class="btn btn-sm" [ngClass]="currentStatus === 'DELIVERED' ? 'btn-success' : 'btn-outline-success'" (click)="filterStatus('DELIVERED')">Đã giao</button>
-              <button class="btn btn-sm" [ngClass]="currentStatus === 'CANCELLED' ? 'btn-danger' : 'btn-outline-danger'" (click)="filterStatus('CANCELLED')">Đã hủy</button>
+              <button class="btn btn-sm" [ngClass]="statusFilter === '' ? 'btn-primary' : 'btn-outline-secondary'" (click)="filterStatus('')">Tất cả</button>
+              <button class="btn btn-sm" [ngClass]="statusFilter === 'PENDING' ? 'btn-warning' : 'btn-outline-warning'" (click)="filterStatus('PENDING')">Chờ xác nhận</button>
+              <button class="btn btn-sm" [ngClass]="statusFilter === 'CONFIRMED' ? 'btn-info' : 'btn-outline-info'" (click)="filterStatus('CONFIRMED')">Đã xác nhận</button>
+              <button class="btn btn-sm" [ngClass]="statusFilter === 'SHIPPING' ? 'btn-primary' : 'btn-outline-primary'" (click)="filterStatus('SHIPPING')">Đang giao</button>
+              <button class="btn btn-sm" [ngClass]="statusFilter === 'DELIVERED' ? 'btn-success' : 'btn-outline-success'" (click)="filterStatus('DELIVERED')">Đã giao</button>
+              <button class="btn btn-sm" [ngClass]="statusFilter === 'CANCELLED' ? 'btn-danger' : 'btn-outline-danger'" (click)="filterStatus('CANCELLED')">Đã hủy</button>
             </div>
             <div class="col-lg-4">
               <div class="input-group input-group-sm">
@@ -117,28 +117,50 @@ export class AdminOrdersComponent implements OnInit {
   page: Page<Order> | null = null;
   loading = true;
   currentPage = 0;
-  currentStatus = '';
+  // dùng một biến duy nhất cho filter trạng thái
+  statusFilter: string = '';
   searchTerm = '';
   private _searchDebounce: any;
 
-  constructor(private orderService: OrderService, private sanitizer: DomSanitizer) {}
+  constructor(
+    private orderService: OrderService,
+    private route: ActivatedRoute,
+    private router: Router,
+    private sanitizer: DomSanitizer
+  ) {}
 
   ngOnInit(): void {
-    this.loadPage(0);
+    this.route.queryParamMap.subscribe(params => {
+      const status = (params.get('status') || '').toUpperCase();
+      // cập nhật filter từ URL
+      this.statusFilter = status;
+      this.currentPage = 0;
+      this.loadPage(0, true);
+    });
   }
 
-  loadPage(p: number): void {
+  loadPage(p: number, fromInit: boolean = false): void {
     this.loading = true;
     this.currentPage = p;
-    const q = this.searchTerm ? this.searchTerm.trim() : undefined;
-    this.orderService.adminGetAll(p, 10, this.currentStatus || undefined, q).subscribe({
+    const status = this.statusFilter || undefined;
+
+    if (!fromInit) {
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { status: status || null },
+        queryParamsHandling: 'merge'
+      });
+    }
+
+    this.orderService.adminGetAll(p, 10, status).subscribe({
       next: data => { this.page = data; this.loading = false; },
-      error: () => this.loading = false
+      error: () => { this.loading = false; }
     });
   }
 
   filterStatus(status: string): void {
-    this.currentStatus = status;
+    // Khi bấm nút filter, cập nhật statusFilter và gọi loadPage (sẽ tự cập nhật URL)
+    this.statusFilter = status;
     this.loadPage(0);
   }
 
@@ -185,4 +207,3 @@ export class AdminOrdersComponent implements OnInit {
     return m[s] || s;
   }
 }
-

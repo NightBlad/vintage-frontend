@@ -495,7 +495,7 @@ export class DashboardComponent implements OnInit {
 
     this.salesInsights = [];
 
-    // Cảnh báo tỷ lệ hủy: dùng link sạch /admin/orders, label chuẩn "Xem đơn hàng"
+    // Cảnh báo tỷ lệ hủy: vào trang quản lý đơn và filter trạng thái ĐÃ HỦY
     if (orders.length >= 5 && cancelledCount >= 2 && this.recentCancellationRate >= 30) {
       this.salesInsights.push({
         tone: 'warning',
@@ -506,21 +506,24 @@ export class DashboardComponent implements OnInit {
       });
     }
 
+    // Gợi ý tồn kho: nhảy sang trang quản lý tồn kho (admin)
     if (stats.lowStockCount > 0) {
       this.salesInsights.push({
         tone: 'warning',
         message: `${stats.lowStockCount} sản phẩm sắp hết hàng. Nên ưu tiên bổ sung tồn kho để tránh mất doanh thu.`,
-        link: ['/admin/inventory/adjust'],
+        link: ['/admin/inventory'],
         linkLabel: 'Điều chỉnh kho'
       });
     }
 
+    // Gợi ý sản phẩm bán chạy: nhảy sang trang quản lý sản phẩm, auto search theo tên sản phẩm
     if (this.topSellingProducts.length && this.topSellingProducts[0].quantity >= 3) {
       this.salesInsights.push({
         tone: 'success',
         message: `${this.topSellingProducts[0].productName} đang là sản phẩm bán chạy nhất. Có thể đẩy mạnh combo hoặc upsell.`,
         link: ['/admin/products'],
-        linkLabel: 'Xem sản phẩm'
+        linkLabel: 'Xem sản phẩm',
+        queryParams: { search: this.topSellingProducts[0].productName }
       });
     }
 
