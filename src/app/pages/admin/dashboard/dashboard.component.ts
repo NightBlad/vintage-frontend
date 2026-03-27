@@ -33,8 +33,9 @@ interface OrderStatusStat {
 interface SalesInsight {
   tone: 'success' | 'warning' | 'info';
   message: string;
-  link?: string;
+  link?: string | any[];
   linkLabel?: string;
+  queryParams?: any;
 }
 
 @Component({
@@ -180,7 +181,12 @@ interface SalesInsight {
                     <i class="fas me-2" [ngClass]="{ 'fa-circle-check text-success': insight.tone === 'success', 'fa-triangle-exclamation text-warning': insight.tone === 'warning', 'fa-circle-info text-info': insight.tone === 'info' }"></i>
                     {{ insight.message }}
                   </span>
-                  <a *ngIf="insight.link && insight.linkLabel" [routerLink]="insight.link" class="btn btn-sm btn-outline-primary">{{ insight.linkLabel }}</a>
+                  <a *ngIf="insight.link && insight.linkLabel"
+                     [routerLink]="insight.link"
+                     [queryParams]="insight.queryParams"
+                     class="btn btn-sm btn-outline-primary">
+                    {{ insight.linkLabel }}
+                  </a>
                 </li>
               </ul>
             </div>
@@ -488,30 +494,36 @@ export class DashboardComponent implements OnInit {
     this.statusStats = this.mapStatusStats(apiSummary) ?? fallbackStatusStats;
 
     this.salesInsights = [];
-    if (this.recentCancellationRate >= 15) {
+
+    // Cảnh báo tỷ lệ hủy: dùng link sạch /admin/orders, label chuẩn "Xem đơn hàng"
+    if (orders.length >= 5 && cancelledCount >= 2 && this.recentCancellationRate >= 30) {
       this.salesInsights.push({
         tone: 'warning',
         message: `Tỷ lệ hủy đang ở mức ${this.recentCancellationRate.toFixed(1)}%. Nên kiểm tra lý do hủy và tối ưu khâu chốt đơn.`,
-        link: '/admin/orders',
-        linkLabel: 'Xem đơn hàng'
+        link: ['/admin/orders'],
+        linkLabel: 'Xem đơn hàng',
+        queryParams: { status: 'CANCELLED' }
       });
     }
+
     if (stats.lowStockCount > 0) {
       this.salesInsights.push({
         tone: 'warning',
         message: `${stats.lowStockCount} sản phẩm sắp hết hàng. Nên ưu tiên bổ sung tồn kho để tránh mất doanh thu.`,
-        link: '/admin/inventory/adjust',
+        link: ['/admin/inventory/adjust'],
         linkLabel: 'Điều chỉnh kho'
       });
     }
+
     if (this.topSellingProducts.length && this.topSellingProducts[0].quantity >= 3) {
       this.salesInsights.push({
         tone: 'success',
         message: `${this.topSellingProducts[0].productName} đang là sản phẩm bán chạy nhất. Có thể đẩy mạnh combo hoặc upsell.`,
-        link: '/admin/products',
+        link: ['/admin/products'],
         linkLabel: 'Xem sản phẩm'
       });
     }
+
     if (!this.salesInsights.length) {
       this.salesInsights.push({
         tone: 'info',
@@ -519,9 +531,16 @@ export class DashboardComponent implements OnInit {
       });
     }
 
-    if (apiSummary?.insights?.length) {
-      this.salesInsights = apiSummary.insights;
-    }
+    // Ưu tiên và giới hạn còn tối đa 3 gợi ý: warning -> success -> info
+    const priority = { warning: 1, success: 2, info: 3 } as const;
+    this.salesInsights = this.salesInsights
+      .sort((a, b) => (priority[a.tone] ?? 99) - (priority[b.tone] ?? 99))
+      .slice(0, 3);
+
+    // BỎ override từ backend để luôn dùng insight do frontend xây dựng
+    // if (apiSummary?.insights?.length) {
+    //   this.salesInsights = apiSummary.insights;
+    // }
   }
 
   private mapTopSellingProducts(summary?: DashboardSalesSummary): TopSellingProduct[] | null {
@@ -692,4 +711,3 @@ export class DashboardComponent implements OnInit {
     return null;
   }
 }
-
