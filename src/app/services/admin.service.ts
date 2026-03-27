@@ -39,4 +39,8 @@ export class AdminService {
   updateUser(id: number, payload: Partial<User>): Observable<User> {
     return this.http.put<User>(`${this.base}/users/${id}`, payload);
   }
+
+  createUser(payload: Partial<User>): Observable<User> {
+    return this.http.post<User>(`${this.base}/users`, payload);
+  }
 }

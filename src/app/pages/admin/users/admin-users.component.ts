@@ -92,6 +92,56 @@ import { User, Page } from '../../../models/models';
               </div>
             </div>
 
+            <!-- New user creation form -->
+            <div class="card border-success mb-3">
+              <div class="card-header">
+                <i class="fas fa-plus-circle me-2"></i>Tạo tài khoản mới
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Tên đăng nhập</label>
+                    <input type="text" class="form-control" [(ngModel)]="newUser.username" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Họ tên</label>
+                    <input type="text" class="form-control" [(ngModel)]="newUser.fullName" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" [(ngModel)]="newUser.email" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">SĐT</label>
+                    <input type="text" class="form-control" [(ngModel)]="newUser.phone">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Địa chỉ</label>
+                    <input type="text" class="form-control" [(ngModel)]="newUser.address">
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check form-switch mt-4">
+                      <input class="form-check-input" type="checkbox" id="newEnabledSwitch" [(ngModel)]="newUser.enabled">
+                      <label class="form-check-label" for="newEnabledSwitch">Kích hoạt</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check form-switch mt-4">
+                      <input class="form-check-input" type="checkbox" id="newLockSwitch" [(ngModel)]="newUser.accountLocked">
+                      <label class="form-check-label" for="newLockSwitch">Khóa đăng nhập</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-3 text-end">
+                  <button class="btn btn-secondary me-2" (click)="resetNewUser()">Hủy</button>
+                  <button class="btn btn-success" (click)="createUser()" [disabled]="creating">
+                    <span *ngIf="creating" class="spinner-border spinner-border-sm me-1"></span>
+                    Tạo tài khoản
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div class="table-responsive">
               <table class="table table-sm align-middle table-stacked">
                 <thead class="table-light">
@@ -186,6 +236,18 @@ export class AdminUsersComponent implements OnInit {
   editModel: Partial<User> = {};
   saving = false;
   searchTerm = '';
+  // New create user model and saving flag
+  creating = false;
+  newUser: Partial<User> = {
+    username: '',
+    fullName: '',
+    email: '',
+    phone: '',
+    address: '',
+    enabled: true,
+    accountLocked: false,
+    roles: ['ROLE_USER'] as any
+  };
 
   private _searchDebounce: any;
 
@@ -337,6 +399,61 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
+  resetNewUser(): void {
+    this.newUser = {
+      username: '',
+      fullName: '',
+      email: '',
+      phone: '',
+      address: '',
+      enabled: true,
+      accountLocked: false,
+      roles: ['ROLE_USER'] as any
+    };
+  }
+
+  createUser(): void {
+    this.error = '';
+    this.successMessage = '';
+
+    if (!this.newUser.username || this.newUser.username.trim().length < 3) {
+      this.error = 'Tên đăng nhập phải có ít nhất 3 ký tự';
+      return;
+    }
+    if (!this.newUser.fullName || this.newUser.fullName.trim().length < 2) {
+      this.error = 'Họ tên phải có ít nhất 2 ký tự';
+      return;
+    }
+    if (!this.newUser.email || !/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(this.newUser.email)) {
+      this.error = 'Email không hợp lệ';
+      return;
+    }
+
+    const payload: any = {
+      username: this.newUser.username.trim(),
+      fullName: this.newUser.fullName.trim(),
+      email: this.newUser.email.trim(),
+      phone: (this.newUser.phone || '').trim(),
+      address: (this.newUser.address || '').trim(),
+      enabled: this.newUser.enabled ?? true,
+      accountLocked: this.newUser.accountLocked ?? false,
+      roles: this.newUser.roles || ['ROLE_USER']
+    };
+
+    this.creating = true;
+    this.adminService.createUser(payload).subscribe({
+      next: () => {
+        this.creating = false;
+        this.successMessage = 'Tạo tài khoản mới thành công';
+        this.resetNewUser();
+        this.loadPage(0);
+      },
+      error: (err: any) => {
+        this.creating = false;
+        this.error = err?.error?.error || 'Không thể tạo tài khoản mới';
+      }
+    });
+  }
 
   cancelEdit(): void {
     this.editingUser = null;
@@ -344,28 +461,35 @@ export class AdminUsersComponent implements OnInit {
   }
 
   deleteUser(u: User): void {
-    if (this.isAdmin(u)) {
-      alert('Không thể xóa tài khoản Quản trị viên!');
-      return;
-    }
-    if (!confirm(`Xóa tài khoản "${u.username}"?`)) return;
+    const confirmDelete = confirm(`Bạn có chắc chắn muốn xóa tài khoản "${u.username}"?`);
+    if (!confirmDelete) return;
 
     this.adminService.deleteUser(u.id).subscribe({
-      next: () => this.loadPage(this.currentPage),
-      error: () => alert('Lỗi khi xóa người dùng!')
+      next: () => {
+        this.successMessage = 'Xóa tài khoản thành công';
+        this.loadPage(this.currentPage);
+      },
+      error: (err) => {
+        this.error = err?.error?.error || 'Không thể xóa tài khoản';
+      }
     });
   }
 
   roleLabel(role: string): string {
-    if (role === 'ROLE_ADMIN') return 'Admin';
-    if (role === 'ROLE_STAFF') return 'Nhân viên';
-    return 'User';
+    switch (role) {
+      case 'ROLE_ADMIN': return 'Quản trị viên';
+      case 'ROLE_STAFF': return 'Nhân viên';
+      default: return 'Người dùng thường';
+    }
   }
 
   getPages(): number[] {
     if (!this.page) return [];
-    return Array.from({ length: this.page.totalPages }, (_, i) => i);
+    const pages = [];
+    for (let i = 0; i < this.page.totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
   }
 
 }
-
