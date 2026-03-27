@@ -13,7 +13,7 @@ export const authGuard: CanActivateFn = (_, state) => {
 export const adminGuard: CanActivateFn = (_, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  if (auth.isLoggedIn && auth.isAdmin) return true;
+  if (auth.isLoggedIn && (auth.isAdmin || auth.isStaff)) return true;
   if (auth.isLoggedIn) {
     router.navigate(['/access-denied']);
   } else {
@@ -29,4 +29,3 @@ export const guestGuard: CanActivateFn = () => {
   router.navigate(['/']);
   return false;
 };
-

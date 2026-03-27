@@ -84,8 +84,12 @@ import { CartService } from '../../services/cart.service';
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li><a class="dropdown-item" routerLink="/account/profile"><i class="fas fa-user me-2"></i>Tài khoản</a></li>
                   <li><a class="dropdown-item" routerLink="/account/orders"><i class="fas fa-box me-2"></i>Đơn hàng</a></li>
-                  <li *ngIf="authService.isAdmin"><hr class="dropdown-divider"></li>
-                  <li *ngIf="authService.isAdmin"><a class="dropdown-item text-primary" routerLink="/admin"><i class="fas fa-cog me-2"></i>Quản trị</a></li>
+                  <li *ngIf="authService.isAdmin || authService.isStaff"><hr class="dropdown-divider"></li>
+                  <li *ngIf="authService.isAdmin || authService.isStaff">
+                    <a class="dropdown-item text-primary" routerLink="/admin">
+                      <i class="fas fa-cog me-2"></i>Quản lý cửa hàng
+                    </a>
+                  </li>
                   <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item text-danger" (click)="logout()" style="cursor:pointer"><i class="fas fa-sign-out-alt me-2"></i>Đăng xuất</a></li>
                 </ul>
@@ -193,4 +197,3 @@ export class LayoutComponent implements OnInit {
     this.router.navigate(['/search'], { queryParams });
   }
 }
-

@@ -52,14 +52,15 @@ import { AuthService } from '../../services/auth.service';
               <i class="fas fa-shopping-cart me-1"></i>Đơn hàng
             </a>
           </li>
-          <li class="nav-item">
+          <!-- Chỉ ADMIN mới thấy menu Người dùng -->
+          <li class="nav-item" *ngIf="authService.isAdmin">
             <a class="nav-link" routerLink="/admin/users" routerLinkActive="active">
               <i class="fas fa-users me-1"></i>Người dùng
             </a>
           </li>
           <li class="nav-item">
             <a class="nav-link" routerLink="/admin/inventory" routerLinkActive="active">
-              <i class="fas fa-warehouse me-1"></i>Kho hàng
+              <i class="fas a-warehouse me-1"></i>Kho hàng
             </a>
           </li>
 <!--          <li class="nav-item">-->
