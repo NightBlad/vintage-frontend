@@ -58,8 +58,8 @@ import { forkJoin } from 'rxjs';
                   <div class="mb-3">
                     <label class="form-label fw-medium">Danh mục chính <span class="text-danger">*</span></label>
                     <select class="form-select" [(ngModel)]="selectedMainCategoryId" name="mainCategoryId" (change)="onMainCategoryChange()" required>
-                      <option [value]="null">-- Chọn danh mục chính --</option>
-                      <option *ngFor="let c of mainCategories" [value]="c.id">{{ c.name }}</option>
+                      <option [ngValue]="null">-- Chọn danh mục chính --</option>
+                      <option *ngFor="let c of mainCategories" [ngValue]="c.id">{{ c.name }}</option>
                     </select>
                     <small class="text-muted">Bắt buộc phải chọn danh mục chính</small>
                   </div>
@@ -275,9 +275,9 @@ export class ProductFormComponent implements OnInit {
 
     const id = this.route.snapshot.paramMap.get('id');
 
-    // Nếu đang tạo mới: chỉ cần load danh mục
+    // Nếu đang tạo mới: chỉ cần load danh mục (dùng API admin để có subCategories)
     if (!id) {
-      this.categoryService.getAll().subscribe({
+      this.categoryService.getAllAdmin().subscribe({
         next: cats => {
           this.mainCategories = cats.filter(c => c.isMainCategory);
           this.loading = false;
@@ -292,7 +292,7 @@ export class ProductFormComponent implements OnInit {
 
     // Nếu đang edit: load song song danh mục và sản phẩm, nhưng xử lý sau khi cả hai xong
     forkJoin([
-      this.categoryService.getAll(),
+      this.categoryService.getAllAdmin(),
       this.productService.getById(+id)
     ]).subscribe({
       next: ([cats, p]) => {
