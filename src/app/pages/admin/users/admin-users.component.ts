@@ -32,6 +32,12 @@ import { User, Page } from '../../../models/models';
             <div class="col-md-2">
               <button class="btn btn-primary btn-sm w-100" (click)="applySearch()"><i class="fas fa-filter me-1"></i>Lọc</button>
             </div>
+            <div class="col-md-4 text-md-end mt-2 mt-md-0">
+              <button class="btn btn-success btn-sm" (click)="toggleCreateForm()">
+                <i class="fas" [class.fa-plus-circle]="!showCreateForm" [class.fa-times]="showCreateForm"></i>
+                <span class="ms-1">{{ showCreateForm ? 'Đóng form tạo tài khoản' : 'Tạo tài khoản mới' }}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -93,7 +99,7 @@ import { User, Page } from '../../../models/models';
             </div>
 
             <!-- New user creation form -->
-            <div class="card border-success mb-3">
+            <div class="card border-success mb-3" *ngIf="showCreateForm">
               <div class="card-header">
                 <i class="fas fa-plus-circle me-2"></i>Tạo tài khoản mới
               </div>
@@ -134,21 +140,20 @@ import { User, Page } from '../../../models/models';
                       <option [ngValue]="['ROLE_STAFF']">Nhân viên</option>
                     </select>
                   </div>
-                  <div class="col-md-6">
-                    <div class="form-check form-switch mt-4">
-                      <input class="form-check-input" type="checkbox" id="newEnabledSwitch" [(ngModel)]="newUser.enabled">
-                      <label class="form-check-label" for="newEnabledSwitch">Kích hoạt</label>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-check form-switch mt-4">
-                      <input class="form-check-input" type="checkbox" id="newLockSwitch" [(ngModel)]="newUser.accountLocked">
-                      <label class="form-check-label" for="newLockSwitch">Khóa đăng nhập</label>
-                    </div>
-                  </div>
+<!--                  <div class="col-md-6">-->
+<!--                    <div class="form-check form-switch mt-4">-->
+<!--                      <input class="form-check-input" type="checkbox" id="newEnabledSwitch" [(ngModel)]="newUser.enabled">-->
+<!--                      <label class="form-check-label" for="newEnabledSwitch">Kích hoạt</label>-->
+<!--                    </div>-->
+<!--                  </div>-->
+<!--                  <div class="col-md-6">-->
+<!--                    <div class="form-check form-switch mt-4">-->
+<!--                      <input class="form-check-input" type="checkbox" id="newLockSwitch" [(ngModel)]="newUser.accountLocked">-->
+<!--                      <label class="form-check-label" for="newLockSwitch">Khóa đăng nhập</label>-->
+<!--                    </div>-->
+<!--                  </div>-->
                 </div>
                 <div class="mt-3 text-end">
-                  <button class="btn btn-secondary me-2" (click)="resetNewUser()">Hủy</button>
                   <button class="btn btn-success" (click)="createUser()" [disabled]="creating">
                     <span *ngIf="creating" class="spinner-border spinner-border-sm me-1"></span>
                     Tạo tài khoản
@@ -251,8 +256,8 @@ export class AdminUsersComponent implements OnInit {
   editModel: Partial<User> = {};
   saving = false;
   searchTerm = '';
-  // New create user model and saving flag
   creating = false;
+  showCreateForm = false; // controls visibility of create-user form
   newUser: Partial<User> & { password?: string; confirmPassword?: string; roles?: string[] } = {
     username: '',
     fullName: '',
@@ -419,6 +424,15 @@ export class AdminUsersComponent implements OnInit {
   cancelEdit(): void {
     this.editingUser = null;
     this.editModel = {};
+  }
+
+  toggleCreateForm(): void {
+    this.showCreateForm = !this.showCreateForm;
+    if (this.showCreateForm) {
+      this.resetNewUser();
+      this.error = '';
+      this.successMessage = '';
+    }
   }
 
   resetNewUser(): void {
