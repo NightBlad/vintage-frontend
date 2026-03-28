@@ -51,6 +51,12 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                             (click)="cancel(order.id)">
                       <i class="fas fa-times me-1"></i>Hủy
                     </button>
+                    <!-- New review button shown only for delivered orders -->
+                    <button class="btn btn-outline-primary btn-sm"
+                            *ngIf="order.status === 'DELIVERED'"
+                            (click)="openOrderReview(order)">
+                      <i class="fas fa-star me-1"></i>Đánh giá
+                    </button>
                   </div>
                 </div>
               </div>
@@ -137,5 +143,10 @@ export class OrdersComponent implements OnInit {
     const img = event.target as HTMLImageElement | null;
     if (!img || img.getAttribute('src') === this.placeholderImage) return;
     img.src = this.placeholderImage;
+  }
+
+  openOrderReview(order: Order): void {
+    // Stub: later can navigate to detail or open a modal; for now just log.
+    console.log('Open review for order', order);
   }
 }

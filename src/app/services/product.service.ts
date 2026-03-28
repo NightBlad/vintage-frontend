@@ -52,6 +52,12 @@ export class ProductService {
       map(response => this.normalizePage<Product>(response, page, size))
     );
   }
+  createReview(productId: number, payload: { orderId: number; orderItemId: number; rating: number; comment: string }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${productId}/reviews`, payload);
+  }
+  getReviews(productId: number): Observable<{ averageRating: number; reviewCount: number; reviews: any[] }> {
+    return this.http.get<{ averageRating: number; reviewCount: number; reviews: any[] }>(`${this.apiUrl}/${productId}/reviews`);
+  }
   private normalizeProduct(product: any): Product {
     const stockQuantity = Number(product?.stockQuantity ?? 0);
     const availableQuantity = resolveAvailableQuantity({

@@ -3,13 +3,15 @@ import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { LayoutComponent } from '../../../components/layout/layout.component';
 import { OrderService } from '../../../services/order.service';
+import { ProductService } from '../../../services/product.service';
 import { Order, OrderItem } from '../../../models/models';
 import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/product-image.util';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-order-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, LayoutComponent],
+  imports: [CommonModule, RouterLink, LayoutComponent, FormsModule],
   template: `
     <app-layout>
       <div class="container my-5" *ngIf="order">
@@ -35,7 +37,14 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
               <div class="table-responsive">
                 <table class="table mb-0">
                   <thead class="table-light">
-                    <tr><th width="72">Ảnh</th><th>Sản phẩm</th><th class="text-center">SL</th><th class="text-end">Đơn giá</th><th class="text-end">Thành tiền</th></tr>
+                    <tr>
+                      <th width="72">Ảnh</th>
+                      <th>Sản phẩm</th>
+                      <th class="text-center">SL</th>
+                      <th class="text-end">Đơn giá</th>
+                      <th class="text-end">Thành tiền</th>
+                      <th *ngIf="order.status === 'DELIVERED'" class="text-center">Đánh giá</th>
+                    </tr>
                   </thead>
                   <tbody>
                     <tr *ngFor="let item of order.orderItems">
@@ -49,6 +58,11 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                       <td class="text-center">{{ item.quantity }}</td>
                       <td class="text-end">{{ (item.unitPrice || item.price) | number:'1.0-0' }} VNĐ</td>
                       <td class="text-end fw-bold text-primary">{{ (item.subtotal || item.totalPrice) | number:'1.0-0' }} VNĐ</td>
+                      <td *ngIf="order.status === 'DELIVERED'" class="text-center">
+                        <button class="btn btn-sm btn-outline-primary" (click)="openReviewForm(item)">
+                          <i class="fas fa-star me-1"></i>Đánh giá
+                        </button>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -106,6 +120,51 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
         </div>
       </div>
       <div class="text-center py-5" *ngIf="loading"><div class="spinner-border text-primary"></div></div>
+
+      <!-- Simple review modal -->
+      <div class="modal fade show d-block" tabindex="-1" role="dialog" *ngIf="reviewingItem">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">
+                Đánh giá sản phẩm
+                <small class="text-muted d-block">
+                  {{ reviewingItem?.productName || reviewingItem?.product?.name }}
+                </small>
+              </h5>
+              <button type="button" class="btn-close" (click)="closeReviewForm()"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Số sao</label>
+                <div class="d-flex gap-1">
+                  <i *ngFor="let s of [1,2,3,4,5]"
+                     class="fas"
+                     [ngClass]="s <= reviewForm.rating ? 'fa-star text-warning' : 'fa-star text-secondary'"
+                     style="cursor:pointer"
+                     (click)="setRating(s)"></i>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Nhận xét</label>
+                <textarea class="form-control" rows="3"
+                          [(ngModel)]="reviewForm.comment"
+                          placeholder="Chia sẻ cảm nhận của bạn về sản phẩm..."></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" (click)="closeReviewForm()">Đóng</button>
+              <button class="btn btn-primary"
+                      [disabled]="submittingReview || !reviewForm.rating"
+                      (click)="submitReview()">
+                <span *ngIf="submittingReview" class="spinner-border spinner-border-sm me-2"></span>
+                Gửi đánh giá
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop fade show" *ngIf="reviewingItem"></div>
     </app-layout>
   `
 })
@@ -117,10 +176,18 @@ export class OrderDetailComponent implements OnInit {
   successMsg = '';
   errorMsg = '';
 
+  reviewingItem: OrderItem | null = null;
+  submittingReview = false;
+  reviewForm = {
+    rating: 0,
+    comment: ''
+  };
+
   constructor(
     private orderService: OrderService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private productService: ProductService
   ) {}
 
   ngOnInit(): void {
@@ -196,5 +263,54 @@ export class OrderDetailComponent implements OnInit {
     const img = event.target as HTMLImageElement | null;
     if (!img || img.getAttribute('src') === this.placeholderImage) return;
     img.src = this.placeholderImage;
+  }
+
+  openReviewForm(item: OrderItem): void {
+    this.reviewingItem = item;
+    this.reviewForm = { rating: 0, comment: '' };
+  }
+
+  closeReviewForm(): void {
+    this.reviewingItem = null;
+    this.submittingReview = false;
+  }
+
+  setRating(r: number): void {
+    this.reviewForm.rating = r;
+  }
+
+  submitReview(): void {
+    if (!this.reviewingItem || !this.order) return;
+    if (!this.reviewForm.rating) return;
+
+    this.submittingReview = true;
+    this.errorMsg = '';
+    this.successMsg = '';
+
+    const productId = this.reviewingItem.product?.id ?? (this.reviewingItem as any).productId;
+    if (!productId) {
+      this.submittingReview = false;
+      this.errorMsg = 'Không xác định được sản phẩm để đánh giá.';
+      return;
+    }
+
+    const payload = {
+      orderId: this.order.id,
+      orderItemId: (this.reviewingItem as any).id,
+      rating: this.reviewForm.rating,
+      comment: this.reviewForm.comment?.trim() || ''
+    };
+
+    this.productService.createReview(productId, payload).subscribe({
+      next: () => {
+        this.submittingReview = false;
+        this.successMsg = 'Cảm ơn bạn đã đánh giá sản phẩm!';
+        this.closeReviewForm();
+      },
+      error: (err) => {
+        this.submittingReview = false;
+        this.errorMsg = err?.error?.message || err?.error?.error || 'Không thể gửi đánh giá. Vui lòng thử lại.';
+      }
+    });
   }
 }

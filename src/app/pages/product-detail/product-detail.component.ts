@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, ActivatedRoute } from '@angular/router';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LayoutComponent } from '../../components/layout/layout.component';
 import { ProductService } from '../../services/product.service';
@@ -72,7 +72,26 @@ import { resolveAvailableQuantity } from '../../utils/product-stock.util';
 
           <!-- Info -->
           <div class="col-lg-6">
-            <h1 class="h2 fw-bold mb-3">{{ product.name }}</h1>
+            <h1 class="h2 fw-bold mb-1">{{ product.name }}</h1>
+
+            <!-- Rating summary -->
+            <div class="mb-2">
+              <ng-container *ngIf="!reviewsLoading">
+                <ng-container *ngIf="reviewCount > 0; else noReviewSummary">
+                  <span class="me-2">
+                    <i *ngFor="let s of [1,2,3,4,5]"
+                       class="fas"
+                       [ngClass]="s <= rounded(averageRating) ? 'fa-star text-warning' : 'fa-star text-secondary'"></i>
+                  </span>
+                  <span class="fw-semibold">{{ averageRating | number:'1.1-1' }} / 5,0</span>
+                  <span class="text-muted ms-1">({{ reviewCount }} đánh giá)</span>
+                </ng-container>
+                <ng-template #noReviewSummary>
+                  <span class="text-muted"><i class="fas fa-star me-1"></i>Chưa có đánh giá nào</span>
+                </ng-template>
+              </ng-container>
+            </div>
+
             <p class="text-muted"><i class="fas fa-barcode me-2"></i>Mã: <strong>{{ product.productCode }}</strong></p>
             <p>
               <i class="fas fa-tags me-2"></i>Danh mục:
@@ -143,7 +162,7 @@ import { resolveAvailableQuantity } from '../../utils/product-stock.util';
           </div>
         </div>
 
-        <!-- Description tabs -->
+        <!-- Description & reviews tabs -->
         <div class="row mt-5">
           <div class="col-12">
             <ul class="nav nav-tabs" id="productTabs">
@@ -151,12 +170,74 @@ import { resolveAvailableQuantity } from '../../utils/product-stock.util';
               <li class="nav-item" *ngIf="product.ingredients"><button class="nav-link" [class.active]="activeTab==='ing'" (click)="activeTab='ing'">Thành phần</button></li>
               <li class="nav-item" *ngIf="product.usage"><button class="nav-link" [class.active]="activeTab==='use'" (click)="activeTab='use'">Cách dùng</button></li>
               <li class="nav-item" *ngIf="product.contraindications"><button class="nav-link" [class.active]="activeTab==='contra'" (click)="activeTab='contra'">Chống chỉ định</button></li>
+              <li class="nav-item"><button class="nav-link" [class.active]="activeTab==='reviews'" (click)="activeTab='reviews'">Đánh giá ({{ reviewCount }})</button></li>
             </ul>
             <div class="card border-top-0 p-4">
               <div *ngIf="activeTab==='desc'" [innerHTML]="product.description || 'Chưa có mô tả.'"></div>
               <div *ngIf="activeTab==='ing'" [innerHTML]="product.ingredients"></div>
               <div *ngIf="activeTab==='use'" [innerHTML]="product.usage"></div>
               <div *ngIf="activeTab==='contra'" [innerHTML]="product.contraindications"></div>
+
+              <!-- Reviews tab content -->
+              <div *ngIf="activeTab==='reviews'">
+                <div *ngIf="reviewsLoading" class="text-muted">
+                  <i class="fas fa-circle-notch fa-spin me-2"></i>Đang tải đánh giá...
+                </div>
+                <div *ngIf="!reviewsLoading && reviewCount === 0" class="text-muted">
+                  <i class="fas fa-star me-1"></i>Chưa có đánh giá nào cho sản phẩm này.
+                </div>
+                <div *ngIf="!reviewsLoading && reviewCount > 0" class="list-group">
+                  <div *ngFor="let r of reviews" class="list-group-item">
+                    <div class="d-flex justify-content-between mb-1">
+                      <div>
+                        <strong>{{ r.user?.fullName || r.user?.username || 'Khách hàng' }}</strong>
+                        <span class="ms-2">
+                          <i *ngFor="let s of [1,2,3,4,5]"
+                             class="fas"
+                             [ngClass]="s <= r.rating ? 'fa-star text-warning' : 'fa-star text-secondary'"
+                             style="font-size:0.8rem;"></i>
+                        </span>
+                      </div>
+                      <small class="text-muted">{{ r.createdAt | date:'dd/MM/yyyy HH:mm' }}</small>
+                    </div>
+                    <div *ngIf="r.comment" class="mt-1">
+                      {{ r.comment }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Similar products -->
+        <div class="row mt-5" *ngIf="relatedProducts && relatedProducts.length">
+          <div class="col-12">
+            <h4 class="fw-bold mb-3"><i class="fas fa-random me-2 text-primary"></i>Sản phẩm tương tự</h4>
+          </div>
+          <div class="col-lg-3 col-md-4 col-sm-6 mb-4" *ngFor="let p of relatedProducts">
+            <div class="card h-100 shadow-sm product-card" role="button" (click)="goToProduct(p.id)">
+              <div class="product-image position-relative">
+                <img [src]="getImageUrl(p.imageUrl)" [alt]="p.name" (error)="onImageError($event)">
+                <span *ngIf="p.featured" class="badge bg-warning position-absolute top-0 end-0 m-2">
+                  <i class="fas fa-star me-1"></i>Nổi bật
+                </span>
+              </div>
+              <div class="card-body d-flex flex-column">
+                <h6 class="fw-bold mb-1">{{ p.name }}</h6>
+                <small class="text-muted mb-2">
+                  {{ p.mainCategoryName }}<span *ngIf="p.subCategoryName"> > {{ p.subCategoryName }}</span>
+                </small>
+                <div class="mt-auto">
+                  <div *ngIf="p.salePrice && p.salePrice > 0">
+                    <span class="text-decoration-line-through text-muted small">{{ p.price | number:'1.0-0' }} VNĐ</span>
+                    <div class="text-danger fw-bold">{{ p.salePrice | number:'1.0-0' }} VNĐ</div>
+                  </div>
+                  <div *ngIf="!p.salePrice || p.salePrice <= 0">
+                    <div class="text-primary fw-bold">{{ p.price | number:'1.0-0' }} VNĐ</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -186,20 +267,27 @@ export class ProductDetailComponent implements OnInit {
   toastType: 'error' | 'warning' | null = null;
   allImages: (string | undefined)[] = [];
   activeImageIndex = 0;
+  averageRating = 0;
+  reviewCount = 0;
+  reviews: any[] = [];
+  reviewsLoading = true;
+  relatedProducts: Product[] = [];
 
   constructor(
     private productService: ProductService,
     private cartService: CartService,
     public authService: AuthService,
     private route: ActivatedRoute,
-    private inventoryService: InventoryService
+    private inventoryService: InventoryService,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
     const id = +this.route.snapshot.paramMap.get('id')!;
     this.productService.getById(id).subscribe({
-      next: p => {
-        this.product = p;
+      next: (p: any) => {
+        this.product = p as Product;
+        this.relatedProducts = (p.relatedProducts || []).slice(0, 4);
         this.buildImageList(p);
         this.availableStock = resolveAvailableQuantity(p);
         this.stockChecked = true;
@@ -208,8 +296,27 @@ export class ProductDetailComponent implements OnInit {
         }
         this.loading = false;
         this.checkStock();
+        this.loadReviews(p.id);
       },
       error: () => this.loading = false
+    });
+  }
+
+  private loadReviews(productId: number): void {
+    this.reviewsLoading = true;
+    this.productService.getReviews(productId).subscribe({
+      next: res => {
+        this.averageRating = res.averageRating || 0;
+        this.reviewCount = res.reviewCount || 0;
+        this.reviews = res.reviews || [];
+        this.reviewsLoading = false;
+      },
+      error: () => {
+        this.averageRating = 0;
+        this.reviewCount = 0;
+        this.reviews = [];
+        this.reviewsLoading = false;
+      }
     });
   }
 
@@ -315,5 +422,13 @@ export class ProductDetailComponent implements OnInit {
         this.toastType = null;
       }, 3000);
     }
+  }
+
+  goToProduct(id: number): void {
+    this.router.navigate(['/products', id]);
+  }
+
+  rounded(value: number): number {
+    return Math.round(value || 0);
   }
 }
