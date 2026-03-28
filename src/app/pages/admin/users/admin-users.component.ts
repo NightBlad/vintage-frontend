@@ -120,6 +120,21 @@ import { User, Page } from '../../../models/models';
                     <input type="text" class="form-control" [(ngModel)]="newUser.address">
                   </div>
                   <div class="col-md-6">
+                    <label class="form-label">Mật khẩu</label>
+                    <input type="password" class="form-control" [(ngModel)]="newUser.password" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Xác nhận mật khẩu</label>
+                    <input type="password" class="form-control" [(ngModel)]="newUser.confirmPassword" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Vai trò</label>
+                    <select class="form-select" [(ngModel)]="newUser.roles" [ngModelOptions]="{standalone: true}">
+                      <option [ngValue]="['ROLE_USER']">Người dùng thường</option>
+                      <option [ngValue]="['ROLE_STAFF']">Nhân viên</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
                     <div class="form-check form-switch mt-4">
                       <input class="form-check-input" type="checkbox" id="newEnabledSwitch" [(ngModel)]="newUser.enabled">
                       <label class="form-check-label" for="newEnabledSwitch">Kích hoạt</label>
@@ -238,7 +253,7 @@ export class AdminUsersComponent implements OnInit {
   searchTerm = '';
   // New create user model and saving flag
   creating = false;
-  newUser: Partial<User> = {
+  newUser: Partial<User> & { password?: string; confirmPassword?: string; roles?: string[] } = {
     username: '',
     fullName: '',
     email: '',
@@ -246,7 +261,9 @@ export class AdminUsersComponent implements OnInit {
     address: '',
     enabled: true,
     accountLocked: false,
-    roles: ['ROLE_USER'] as any
+    roles: ['ROLE_USER'],
+    password: '',
+    confirmPassword: ''
   };
 
   private _searchDebounce: any;
@@ -271,12 +288,12 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
-    applySearch(): void {
-      if (this._searchDebounce) {
-        clearTimeout(this._searchDebounce);
-      }
-      this._searchDebounce = setTimeout(() => this.loadPage(0), 250);
+  applySearch(): void {
+    if (this._searchDebounce) {
+      clearTimeout(this._searchDebounce);
     }
+    this._searchDebounce = setTimeout(() => this.loadPage(0), 250);
+  }
 
   clearSearch(): void {
     if (!this.searchTerm) return;
@@ -399,6 +416,11 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
+  cancelEdit(): void {
+    this.editingUser = null;
+    this.editModel = {};
+  }
+
   resetNewUser(): void {
     this.newUser = {
       username: '',
@@ -408,7 +430,9 @@ export class AdminUsersComponent implements OnInit {
       address: '',
       enabled: true,
       accountLocked: false,
-      roles: ['ROLE_USER'] as any
+      roles: ['ROLE_USER'],
+      password: '',
+      confirmPassword: ''
     };
   }
 
@@ -424,8 +448,17 @@ export class AdminUsersComponent implements OnInit {
       this.error = 'Họ tên phải có ít nhất 2 ký tự';
       return;
     }
+    // email regex synchronized with backend: ^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$
     if (!this.newUser.email || !/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(this.newUser.email)) {
       this.error = 'Email không hợp lệ';
+      return;
+    }
+    if (!this.newUser.password || this.newUser.password.length < 6) {
+      this.error = 'Mật khẩu phải có ít nhất 6 ký tự';
+      return;
+    }
+    if (this.newUser.password !== this.newUser.confirmPassword) {
+      this.error = 'Mật khẩu xác nhận không khớp';
       return;
     }
 
@@ -433,63 +466,59 @@ export class AdminUsersComponent implements OnInit {
       username: this.newUser.username.trim(),
       fullName: this.newUser.fullName.trim(),
       email: this.newUser.email.trim(),
-      phone: (this.newUser.phone || '').trim(),
-      address: (this.newUser.address || '').trim(),
+      phone: this.newUser.phone || '',
+      address: this.newUser.address || '',
       enabled: this.newUser.enabled ?? true,
       accountLocked: this.newUser.accountLocked ?? false,
-      roles: this.newUser.roles || ['ROLE_USER']
+      password: this.newUser.password,
+      roles: this.newUser.roles && this.newUser.roles.length ? this.newUser.roles : ['ROLE_USER']
     };
 
     this.creating = true;
     this.adminService.createUser(payload).subscribe({
       next: () => {
         this.creating = false;
-        this.successMessage = 'Tạo tài khoản mới thành công';
+        this.successMessage = 'Tạo tài khoản thành công';
         this.resetNewUser();
         this.loadPage(0);
       },
-      error: (err: any) => {
+      error: (err) => {
         this.creating = false;
-        this.error = err?.error?.error || 'Không thể tạo tài khoản mới';
+        this.error = err?.error?.error || 'Không thể tạo tài khoản';
       }
     });
   }
 
-  cancelEdit(): void {
-    this.editingUser = null;
-    this.editModel = {};
-  }
-
   deleteUser(u: User): void {
-    const confirmDelete = confirm(`Bạn có chắc chắn muốn xóa tài khoản "${u.username}"?`);
-    if (!confirmDelete) return;
-
+    if (!confirm(`Bạn có chắc muốn xóa tài khoản "${u.username}"?`)) return;
     this.adminService.deleteUser(u.id).subscribe({
       next: () => {
-        this.successMessage = 'Xóa tài khoản thành công';
+        this.successMessage = 'Xóa người dùng thành công';
+        this.error = '';
         this.loadPage(this.currentPage);
       },
       error: (err) => {
-        this.error = err?.error?.error || 'Không thể xóa tài khoản';
+        this.error = err?.error?.error || 'Không thể xóa người dùng';
       }
     });
   }
 
   roleLabel(role: string): string {
     switch (role) {
-      case 'ROLE_ADMIN': return 'Quản trị viên';
-      case 'ROLE_STAFF': return 'Nhân viên';
-      default: return 'Người dùng thường';
+      case 'ROLE_ADMIN':
+        return 'Quản trị viên';
+      case 'ROLE_STAFF':
+        return 'Nhân viên';
+      case 'ROLE_USER':
+      default:
+        return 'Người dùng';
     }
   }
 
   getPages(): number[] {
-    if (!this.page) return [];
-    const pages = [];
-    for (let i = 0; i < this.page.totalPages; i++) {
-      pages.push(i);
+    if (!this.page || this.page.totalPages <= 0) {
+      return [];
     }
-    return pages;
+    return Array.from({ length: this.page.totalPages }, (_, i) => i);
   }
-
 }
