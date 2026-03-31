@@ -12,7 +12,18 @@ export function resolveAuthErrorMessage(error: unknown, fallback: string): strin
   const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : null;
   const code = String(payload?.['code'] ?? payload?.['errorCode'] ?? '').toUpperCase();
   const statusText = String(payload?.['status'] ?? '').toUpperCase();
-  const messageRaw = String(payload?.['message'] ?? rawPayload ?? '');
+  const messageRaw = (() => {
+    const pickFirstString = (...candidates: Array<unknown>) => candidates.find(v => typeof v === 'string' && v.trim()) as string | undefined;
+    const candidate = pickFirstString(
+      payload?.['message'],
+      payload?.['error_description'],
+      payload?.['errorMessage'],
+      payload?.['error'],
+      typeof rawPayload === 'string' ? rawPayload : null,
+      error.message
+    );
+    return candidate ?? '';
+  })();
   const message = messageRaw.toLowerCase();
   const violations = payload?.['violations'];
   if (Array.isArray(violations)) {
