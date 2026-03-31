@@ -1,16 +1,19 @@
-import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { environment } from '../../../environments/environment';
+import { ChatService, ChatSendResponse } from '../../services/chat.service';
+
+type ChatMessage = { role: 'user' | 'bot'; content: string };
 
 @Component({
   selector: 'app-dify-chatbot',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   template: `
     <div *ngIf="!isLoggedIn" class="login-prompt">
       <div class="prompt-content">
@@ -20,32 +23,44 @@ import { environment } from '../../../environments/environment';
       </div>
     </div>
 
-    <div *ngIf="isLoggedIn && hasChatbotUrl" class="dify-custom-button" (click)="toggleChatWindow()" title="Mở chatbot">
+    <div *ngIf="isLoggedIn" class="dify-custom-button" (click)="toggleChatWindow()" title="Mở chatbot">
       <i class="fas fa-comments"></i>
     </div>
 
-    <div *ngIf="isLoggedIn && showChatWindow && hasChatbotUrl" class="dify-chat-window">
+    <div *ngIf="isLoggedIn && showChatWindow" class="dify-chat-window">
       <div class="dify-chat-body">
         <button class="floating-close" (click)="toggleChatWindow()" aria-label="Đóng chatbot">
           <i class="fas fa-times"></i>
         </button>
-        <div *ngIf="isLoading" class="dify-chat-state">Đang tải chatbot...</div>
-        <div *ngIf="loadError" class="dify-chat-state error">Không thể tải chatbot. Vui lòng thử lại sau.</div>
-        <iframe
-          *ngIf="!loadError"
-          id="dify-chatbot-iframe"
-          [src]="difyIframeUrl"
-          class="dify-chat-iframe"
-          frameborder="0"
-          allow="microphone"
-          (load)="onIframeLoad()"
-          (error)="onIframeError()">
-        </iframe>
-      </div>
-    </div>
 
-    <div *ngIf="isLoggedIn && !hasChatbotUrl" class="dify-chat-state error missing-config">
-      Không tìm thấy cấu hình chatbot. Liên hệ quản trị để bổ sung.
+        <div class="messages" #messagesContainer>
+          <div *ngFor="let msg of messages" [ngClass]="['bubble', msg.role]">
+            <div class="sender" *ngIf="msg.role === 'bot'">Assistant</div>
+            <div class="content">{{ msg.content }}</div>
+          </div>
+          <div *ngIf="sending" class="bubble bot typing">
+            <div class="dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="error" class="dify-chat-state error inline">{{ error }}</div>
+
+        <form class="chat-input" (ngSubmit)="sendMessage()">
+          <input
+            type="text"
+            [(ngModel)]="inputMessage"
+            name="chatInput"
+            [disabled]="sending"
+            placeholder="Nhập tin nhắn..."
+            autocomplete="off"
+          />
+          <button class="send-btn" type="submit" [disabled]="sending || !inputMessage.trim()">
+            <i class="fas" [ngClass]="sending ? 'fa-circle-notch fa-spin' : 'fa-paper-plane'"></i>
+          </button>
+        </form>
+      </div>
     </div>
   `,
   styles: [`
@@ -152,6 +167,7 @@ import { environment } from '../../../environments/environment';
       flex: 1;
       display: flex;
       flex-direction: column;
+      padding-top: 8px;
     }
 
     .floating-close {
@@ -178,38 +194,136 @@ import { environment } from '../../../environments/environment';
       background: #ffffff;
     }
 
-    .dify-chat-iframe {
-      flex-grow: 1;
+    .messages {
+      flex: 1;
+      padding: 12px 12px 6px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .bubble {
+      max-width: 90%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .bubble.user {
+      margin-left: auto;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #f8fafc;
+      border-bottom-right-radius: 6px;
+    }
+
+    .bubble.bot {
+      margin-right: auto;
+      background: #ffffff;
+      color: #0f172a;
+      border-bottom-left-radius: 6px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .bubble .sender {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+
+    .bubble.typing {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 10px;
+    }
+
+    .dots span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: #94a3b8;
+      border-radius: 50%;
+      animation: bounce 1s infinite ease-in-out;
+    }
+
+    .dots span:nth-child(2) { animation-delay: 0.12s; }
+    .dots span:nth-child(3) { animation-delay: 0.24s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.9); opacity: 0.6; }
+      40% { transform: scale(1.2); opacity: 1; }
+    }
+
+    .chat-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      border-top: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+
+    .chat-input input {
+      flex: 1;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .chat-input input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .send-btn {
+      width: 42px;
+      height: 42px;
       border: none;
-      border-radius: 0 0 18px 18px;
-      box-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.05);
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #f8fafc;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    }
+
+    .send-btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .send-btn:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35);
+      filter: brightness(1.03);
     }
 
     .dify-chat-state {
-      padding: 16px;
+      padding: 12px;
       text-align: center;
       color: #333;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .dify-chat-state.error {
       color: #b91c1c;
       background: #fef2f2;
-      border-bottom: 1px solid #fecdd3;
+      border-top: 1px solid #fecdd3;
     }
 
-    .missing-config {
-      position: fixed;
-      bottom: 110px;
-      right: 30px;
-      width: 320px;
-      background: #fff7ed;
-      color: #9a3412;
-      border: 1px solid #fdba74;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      padding: 12px 16px;
-      z-index: 999;
+    .dify-chat-state.inline {
+      margin: 0 10px 8px;
+      border-radius: 10px;
     }
 
     @media (max-width: 768px) {
@@ -241,24 +355,24 @@ import { environment } from '../../../environments/environment';
     }
   `]
 })
-export class DifyChatbotComponent implements OnInit, AfterViewInit, OnDestroy {
+
+export class DifyChatbotComponent implements OnInit, OnDestroy {
   isLoggedIn = false;
   showChatWindow = false;
-  difyIframeUrl: SafeResourceUrl | null = null;
-  isLoading = false;
-  loadError = false;
-  hasChatbotUrl = false;
+  messages: ChatMessage[] = [];
+  conversationId: string | null = null;
+  inputMessage = '';
+  sending = false;
+  error: string | null = null;
   private destroy$ = new Subject<void>();
+
+  @ViewChild('messagesContainer') messagesContainer?: ElementRef<HTMLDivElement>;
 
   constructor(
     public authService: AuthService,
     private router: Router,
-    private sanitizer: DomSanitizer
-  ) {
-    const rawUrl = environment.difyChatbotUrl;
-    this.hasChatbotUrl = typeof rawUrl === 'string' && rawUrl.trim().length > 0;
-    this.difyIframeUrl = this.hasChatbotUrl ? this.sanitizer.bypassSecurityTrustResourceUrl(rawUrl) : null;
-  }
+    private chatService: ChatService
+  ) {}
 
   ngOnInit(): void {
     if (this.authService && this.authService.currentUser$) {
@@ -267,16 +381,12 @@ export class DifyChatbotComponent implements OnInit, AfterViewInit, OnDestroy {
         .subscribe(user => {
           this.isLoggedIn = !!user;
           if (!this.isLoggedIn) {
-            this.showChatWindow = false;
+            this.resetSession();
           }
         });
     } else {
       this.isLoggedIn = !!this.authService?.isLoggedIn;
     }
-  }
-
-  ngAfterViewInit(): void {
-    // Nothing needed
   }
 
   ngOnDestroy(): void {
@@ -285,26 +395,65 @@ export class DifyChatbotComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   toggleChatWindow(): void {
-    if (!this.hasChatbotUrl) {
-      return;
-    }
-
     this.showChatWindow = !this.showChatWindow;
-    if (this.showChatWindow) {
-      this.isLoading = true;
-      this.loadError = false;
+    if (this.showChatWindow && this.messages.length === 0) {
+      this.pushBotMessage('Chào bạn! Mình có thể hỗ trợ gì hôm nay?');
     }
   }
 
   goToLogin(): void {
     this.router.navigate(['/login']);
   }
-  onIframeLoad(): void {
-    this.isLoading = false;
+
+  sendMessage(): void {
+    const content = this.inputMessage.trim();
+    if (!content || this.sending) {
+      return;
+    }
+    this.error = null;
+    this.sending = true;
+    this.pushUserMessage(content);
+    this.inputMessage = '';
+
+    this.chatService.sendMessage(content, this.conversationId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res: ChatSendResponse) => {
+          this.conversationId = res.conversationId;
+          this.pushBotMessage(res.answer || '');
+          this.sending = false;
+        },
+        error: () => {
+          this.error = 'Không gửi được tin nhắn. Vui lòng thử lại.';
+          this.sending = false;
+        }
+      });
   }
 
-  onIframeError(): void {
-    this.isLoading = false;
-    this.loadError = true;
+  private pushUserMessage(content: string): void {
+    this.messages.push({ role: 'user', content });
+    this.scrollToBottom();
+  }
+
+  private pushBotMessage(content: string): void {
+    this.messages.push({ role: 'bot', content });
+    this.scrollToBottom();
+  }
+
+  private resetSession(): void {
+    this.messages = [];
+    this.conversationId = null;
+    this.inputMessage = '';
+    this.sending = false;
+    this.error = null;
+  }
+
+  private scrollToBottom(): void {
+    setTimeout(() => {
+      const el = this.messagesContainer?.nativeElement;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 0);
   }
 }
