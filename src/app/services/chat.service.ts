@@ -9,6 +9,20 @@ export interface ChatSendResponse {
   messageId?: string;
 }
 
+export interface ChatHistoryItem {
+  id: string;
+  conversation_id: string;
+  query: string;
+  answer: string;
+  created_at: number;
+}
+
+export interface ChatHistoryResponse {
+  data: ChatHistoryItem[];
+  limit: number;
+  has_more: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ChatService {
   private readonly baseUrl = `${environment.apiUrl}/chat`;
@@ -21,6 +35,14 @@ export class ChatService {
       payload.conversationId = conversationId;
     }
     return this.http.post<ChatSendResponse>(`${this.baseUrl}/message`, payload);
+  }
+
+  getMessages(conversationId: string, limit = 20): Observable<ChatHistoryResponse> {
+    const params: Record<string, any> = { limit };
+    if (conversationId) {
+      params['conversationId'] = conversationId;
+    }
+    return this.http.get<ChatHistoryResponse>(`${this.baseUrl}/messages`, { params });
   }
 }
 

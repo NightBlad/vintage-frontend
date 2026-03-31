@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { ChatService, ChatSendResponse } from '../../services/chat.service';
+import { ChatService, ChatHistoryResponse, ChatSendResponse } from '../../services/chat.service';
 
 type ChatMessage = { role: 'user' | 'bot'; content: string };
 
@@ -361,10 +361,12 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
   showChatWindow = false;
   messages: ChatMessage[] = [];
   conversationId: string | null = null;
+  hasLoadedHistory = false;
   inputMessage = '';
   sending = false;
   error: string | null = null;
   private destroy$ = new Subject<void>();
+  private readonly localStorageKey: string;
 
   @ViewChild('messagesContainer') messagesContainer?: ElementRef<HTMLDivElement>;
 
@@ -372,7 +374,9 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
     public authService: AuthService,
     private router: Router,
     private chatService: ChatService
-  ) {}
+  ) {
+    this.localStorageKey = this.buildStorageKey();
+  }
 
   ngOnInit(): void {
     if (this.authService && this.authService.currentUser$) {
@@ -383,9 +387,11 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
           if (!this.isLoggedIn) {
             this.resetSession();
           }
+          this.restoreConversation();
         });
     } else {
       this.isLoggedIn = !!this.authService?.isLoggedIn;
+      this.restoreConversation();
     }
   }
 
@@ -398,6 +404,9 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
     this.showChatWindow = !this.showChatWindow;
     if (this.showChatWindow && this.messages.length === 0) {
       this.pushBotMessage('Chào bạn! Mình có thể hỗ trợ gì hôm nay?');
+    }
+    if (this.showChatWindow && !this.hasLoadedHistory && this.conversationId) {
+      this.loadHistory();
     }
   }
 
@@ -420,6 +429,7 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res: ChatSendResponse) => {
           this.conversationId = res.conversationId;
+          this.persistConversation();
           this.pushBotMessage(res.answer || '');
           this.sending = false;
         },
@@ -443,9 +453,11 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
   private resetSession(): void {
     this.messages = [];
     this.conversationId = null;
+    this.hasLoadedHistory = false;
     this.inputMessage = '';
     this.sending = false;
     this.error = null;
+    this.persistConversation();
   }
 
   private scrollToBottom(): void {
@@ -455,5 +467,56 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
         el.scrollTop = el.scrollHeight;
       }
     }, 0);
+  }
+
+  private loadHistory(): void {
+    if (!this.conversationId) {
+      return;
+    }
+    this.chatService.getMessages(this.conversationId, 20)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res: ChatHistoryResponse) => {
+          const history = [...(res.data || [])]
+            .reverse()
+            .map(item => ({
+              role: 'user' as const,
+              content: item.query,
+              createdAt: item.created_at
+            }))
+            .flatMap(userMsg => {
+              const botAnswer = res.data?.find(m => m.query === userMsg.content)?.answer;
+              return botAnswer ? [userMsg, { role: 'bot' as const, content: botAnswer, createdAt: userMsg.createdAt }] : [userMsg];
+            });
+          if (history.length) {
+            this.messages = history as ChatMessage[];
+          }
+          this.hasLoadedHistory = true;
+          this.scrollToBottom();
+        },
+        error: () => {
+          this.error = 'Không tải được lịch sử trò chuyện.';
+          this.hasLoadedHistory = true;
+        }
+      });
+  }
+
+  private persistConversation(): void {
+    if (this.conversationId) {
+      localStorage.setItem(this.localStorageKey, this.conversationId);
+    } else {
+      localStorage.removeItem(this.localStorageKey);
+    }
+  }
+
+  private restoreConversation(): void {
+    const stored = localStorage.getItem(this.localStorageKey);
+    this.conversationId = stored || null;
+    this.hasLoadedHistory = false;
+  }
+
+  private buildStorageKey(): string {
+    const user = this.authService?.currentUser?.username || 'anon';
+    return `chat_conversation_${user}`;
   }
 }
