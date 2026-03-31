@@ -7,8 +7,9 @@ import { HttpClientModule } from '@angular/common/http';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ChatService, ChatHistoryResponse, ChatSendResponse } from '../../services/chat.service';
+import { formatChatMessage } from '../../utils/chat-message-format.util';
 
-type ChatMessage = { role: 'user' | 'bot'; content: string };
+type ChatMessage = { role: 'user' | 'bot'; content: string; formattedContent?: string };
 
 @Component({
   selector: 'app-dify-chatbot',
@@ -33,10 +34,11 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
           <i class="fas fa-times"></i>
         </button>
 
-        <div class="messages" #messagesContainer>
+        <div class="messages" #messagesContainer (scroll)="onMessagesScroll()" style="scrollbar-width:thin;">
           <div *ngFor="let msg of messages" [ngClass]="['bubble', msg.role]">
             <div class="sender" *ngIf="msg.role === 'bot'">Assistant</div>
-            <div class="content">{{ msg.content }}</div>
+            <div *ngIf="msg.role === 'user'" class="content">{{ msg.content }}</div>
+            <div *ngIf="msg.role === 'bot'" class="content" [innerHTML]="msg.formattedContent || ''"></div>
           </div>
           <div *ngIf="sending" class="bubble bot typing">
             <div class="dots">
@@ -44,6 +46,17 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
             </div>
           </div>
         </div>
+
+        <button
+          *ngIf="shouldShowScrollToLatestButton"
+          type="button"
+          class="btn btn-primary btn-sm"
+          (click)="scrollToLatest()"
+          aria-label="Cuộn xuống tin nhắn mới nhất"
+          style="position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:6;box-shadow:0 8px 18px rgba(37,99,235,.28);"
+        >
+          Cuộn xuống tin mới
+        </button>
 
         <div *ngIf="error" class="dify-chat-state error inline">{{ error }}</div>
 
@@ -118,14 +131,12 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
       cursor: pointer;
       box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
       z-index: 997;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
-      backdrop-filter: blur(8px);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
     .dify-custom-button:hover {
       transform: translateY(-2px) scale(1.03);
       box-shadow: 0 16px 36px rgba(37, 99, 235, 0.4);
-      filter: brightness(1.02);
     }
 
     .dify-custom-button i {
@@ -146,21 +157,10 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
       display: flex;
       flex-direction: column;
       z-index: 999;
-      animation: slideUp 0.25s ease-out;
       border: 1px solid #e5e7eb;
       overflow: hidden;
     }
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
 
     .dify-chat-body {
       position: relative;
@@ -168,6 +168,7 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
       display: flex;
       flex-direction: column;
       padding-top: 8px;
+      min-height: 0;
     }
 
     .floating-close {
@@ -196,6 +197,7 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
 
     .messages {
       flex: 1;
+      min-height: 0;
       padding: 12px 12px 6px;
       overflow-y: auto;
       display: flex;
@@ -293,7 +295,7 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
       place-items: center;
       cursor: pointer;
       box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
-      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
     .send-btn:disabled {
@@ -304,8 +306,7 @@ type ChatMessage = { role: 'user' | 'bot'; content: string };
 
     .send-btn:not(:disabled):hover {
       transform: translateY(-1px);
-      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.35);
-      filter: brightness(1.03);
+      box-shadow: 0 10px 18px rgba(37, 99, 235, 0.3);
     }
 
     .dify-chat-state {
@@ -367,6 +368,10 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
   error: string | null = null;
   private destroy$ = new Subject<void>();
   private readonly localStorageKey: string;
+  private shouldAutoScroll = true;
+  private readonly autoScrollEnableThresholdPx = 72;
+  private readonly autoScrollDisableThresholdPx = 120;
+  private readonly showScrollButtonThresholdPx = 160;
 
   @ViewChild('messagesContainer') messagesContainer?: ElementRef<HTMLDivElement>;
 
@@ -405,6 +410,10 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
     if (this.showChatWindow && this.messages.length === 0) {
       this.pushBotMessage('Chào bạn! Mình có thể hỗ trợ gì hôm nay?');
     }
+    if (this.showChatWindow) {
+      this.shouldAutoScroll = true;
+      this.scrollToBottom(true);
+    }
     if (this.showChatWindow && !this.hasLoadedHistory && this.conversationId) {
       this.loadHistory();
     }
@@ -441,13 +450,29 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
   }
 
   private pushUserMessage(content: string): void {
-    this.messages.push({ role: 'user', content });
-    this.scrollToBottom();
+    this.messages.push({ role: 'user', content, formattedContent: this.formatUserMessage(content) });
+    this.scrollToBottom(true);
   }
 
   private pushBotMessage(content: string): void {
-    this.messages.push({ role: 'bot', content });
+    this.messages.push({ role: 'bot', content, formattedContent: this.formatBotMessage(content) });
     this.scrollToBottom();
+  }
+
+  get shouldShowScrollToLatestButton(): boolean {
+    return this.showChatWindow && this.getDistanceFromBottom() > this.showScrollButtonThresholdPx;
+  }
+
+  onMessagesScroll(): void {
+    const distanceFromBottom = this.getDistanceFromBottom();
+    this.shouldAutoScroll = this.shouldAutoScroll
+      ? distanceFromBottom <= this.autoScrollDisableThresholdPx
+      : distanceFromBottom <= this.autoScrollEnableThresholdPx;
+  }
+
+  scrollToLatest(): void {
+    this.shouldAutoScroll = true;
+    this.scrollToBottom(true);
   }
 
   private resetSession(): void {
@@ -457,16 +482,29 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
     this.inputMessage = '';
     this.sending = false;
     this.error = null;
+    this.shouldAutoScroll = true;
     this.persistConversation();
   }
 
-  private scrollToBottom(): void {
+  private scrollToBottom(force = false): void {
+    if (!force && !this.shouldAutoScroll) {
+      return;
+    }
     setTimeout(() => {
       const el = this.messagesContainer?.nativeElement;
       if (el) {
         el.scrollTop = el.scrollHeight;
+        this.shouldAutoScroll = true;
       }
     }, 0);
+  }
+
+  private getDistanceFromBottom(): number {
+    const el = this.messagesContainer?.nativeElement;
+    if (!el) {
+      return 0;
+    }
+    return el.scrollHeight - (el.scrollTop + el.clientHeight);
   }
 
   private loadHistory(): void {
@@ -489,10 +527,16 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
               return botAnswer ? [userMsg, { role: 'bot' as const, content: botAnswer, createdAt: userMsg.createdAt }] : [userMsg];
             });
           if (history.length) {
-            this.messages = history as ChatMessage[];
+            this.messages = (history as ChatMessage[]).map(message => ({
+              ...message,
+              formattedContent: message.role === 'bot'
+                ? this.formatBotMessage(message.content)
+                : this.formatUserMessage(message.content)
+            }));
           }
           this.hasLoadedHistory = true;
-          this.scrollToBottom();
+          this.shouldAutoScroll = true;
+          this.scrollToBottom(true);
         },
         error: () => {
           this.error = 'Không tải được lịch sử trò chuyện.';
@@ -518,5 +562,13 @@ export class DifyChatbotComponent implements OnInit, OnDestroy {
   private buildStorageKey(): string {
     const user = this.authService?.currentUser?.username || 'anon';
     return `chat_conversation_${user}`;
+  }
+
+  private formatBotMessage(content: string): string {
+    return formatChatMessage(content);
+  }
+
+  private formatUserMessage(content: string): string {
+    return content;
   }
 }
