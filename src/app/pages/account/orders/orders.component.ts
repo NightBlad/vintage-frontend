@@ -35,7 +35,7 @@ import { PRODUCT_PLACEHOLDER_IMAGE, resolveImageUrl } from '../../../utils/produ
                 <div class="d-flex align-items-center gap-3">
                   <img [src]="getOrderImageUrl(order)" width="56" height="56" class="rounded" style="object-fit:cover" alt="" (error)="onImageError($event)">
                   <div>
-                    <p class="mb-1"><i class="fas fa-shopping-bag me-2 text-muted"></i>{{ order.orderItems?.length || order.itemCount || 0 }} sản phẩm</p>
+                    <p class="mb-1"><i class="fas fa-shopping-bag me-2 text-muted"></i>{{ order.orderItems?.    length || order.itemCount || 0 }} sản phẩm</p>
                     <p class="mb-0"><i class="fas fa-map-marker-alt me-2 text-muted"></i>{{ order.shippingAddress }}</p>
                     <p class="mb-0 mt-1"><small class="text-muted"><i class="fas fa-credit-card me-1"></i>{{ getPaymentMethodLabel(order.paymentMethod) }}</small></p>
                   </div>

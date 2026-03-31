@@ -9,7 +9,7 @@ export const routes: Routes = [
   { path: 'search', loadComponent: () => import('./pages/search-results/search-results.component').then(m => m.SearchResultsComponent) },
   { path: 'about', loadComponent: () => import('./pages/about/about.component').then(m => m.AboutComponent) },
   { path: 'contact', loadComponent: () => import('./pages/contact/contact.component').then(m => m.ContactComponent) },
-  { path: 'chatbot', loadComponent: () => import('./pages/chatbot/chatbot.component').then(m => m.ChatbotComponent) },
+
 
   { path: 'login', canActivate: [guestGuard], loadComponent: () => import('./pages/auth/login/login.component').then(m => m.LoginComponent) },
   { path: 'register', canActivate: [guestGuard], loadComponent: () => import('./pages/auth/register/register.component').then(m => m.RegisterComponent) },

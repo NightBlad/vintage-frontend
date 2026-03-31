@@ -1,6 +1,6 @@
 import { environment } from '../../environments/environment';
 
-export const PRODUCT_PLACEHOLDER_IMAGE = 'assets/images/placeholder-product.png';
+export const PRODUCT_PLACEHOLDER_IMAGE = 'assets/images/placeholder-product.svg';
 
 export function resolveImageUrl(raw: string | null | undefined): string {
   const normalized = raw?.trim() ?? '';

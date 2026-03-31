@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { CartService } from '../../services/cart.service';
+import { DifyChatbotComponent } from '../dify-chatbot/dify-chatbot.component';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, CommonModule, FormsModule],
+  imports: [RouterLink, RouterLinkActive, CommonModule, FormsModule, DifyChatbotComponent],
   template: `
     <!-- Top Header -->
     <div class="top-header">
@@ -42,7 +43,6 @@ import { CartService } from '../../services/cart.service';
               <li class="nav-item"><a class="nav-link" routerLink="/categories" routerLinkActive="active">Danh mục</a></li>
               <li class="nav-item"><a class="nav-link" routerLink="/about" routerLinkActive="active">Giới thiệu</a></li>
               <li class="nav-item"><a class="nav-link" routerLink="/contact" routerLinkActive="active">Liên hệ</a></li>
-              <li class="nav-item"><a class="nav-link" routerLink="/chatbot" routerLinkActive="active"><i class="fas fa-robot me-1"></i>AI Chat</a></li>
             </ul>
 
             <!-- Search -->
@@ -105,6 +105,9 @@ import { CartService } from '../../services/cart.service';
       <ng-content></ng-content>
     </main>
 
+    <!-- Dify Chatbot -->
+    <app-dify-chatbot></app-dify-chatbot>
+
     <!-- Footer -->
     <footer class="footer py-5 mt-5">
       <div class="container">
@@ -130,7 +133,6 @@ import { CartService } from '../../services/cart.service';
             <ul class="list-unstyled mt-2">
               <li><a routerLink="/about">Giới thiệu</a></li>
               <li><a routerLink="/contact">Liên hệ</a></li>
-              <li><a routerLink="/chatbot">AI Chatbot</a></li>
             </ul>
           </div>
           <div class="col-lg-4">
