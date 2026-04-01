@@ -109,6 +109,7 @@ import { Order } from '../../../models/models';
                   <select class="form-select form-select-sm mb-2" [(ngModel)]="selectedPaymentStatus">
                     <option value="UNPAID">Chưa thanh toán</option>
                     <option value="PAID">Đã thanh toán</option>
+                    <option value="REFUNDED">Đã hoàn tiền</option>
                   </select>
                   <button class="btn btn-sm btn-outline-primary w-100" (click)="updatePaymentStatus()" [disabled]="updatingPayment || selectedPaymentStatus === order.paymentStatus">
                     <span *ngIf="updatingPayment" class="spinner-border spinner-border-sm me-2"></span>
@@ -123,14 +124,16 @@ import { Order } from '../../../models/models';
             <div class="card shadow-sm mb-4">
               <div class="card-header"><h6 class="mb-0"><i class="fas fa-edit me-2"></i>Cập nhật trạng thái</h6></div>
               <div class="card-body">
-                <select class="form-select mb-3" [(ngModel)]="selectedStatus">
-                  <option value="PENDING">Chờ xác nhận</option>
-                  <option value="CONFIRMED">Đã xác nhận</option>
-                  <option value="SHIPPING">Đang giao</option>
-                  <option value="DELIVERED">Đã giao</option>
-                  <option value="CANCELLED">Đã hủy</option>
+                <select class="form-select mb-2" [(ngModel)]="selectedStatus" [disabled]="!allowedStatusOptions.length">
+                  <option *ngFor="let s of allowedStatusOptions" [value]="s">{{ getStatusLabel(s) }}</option>
                 </select>
-                <button class="btn btn-primary w-100" (click)="updateStatus()" [disabled]="updating || selectedStatus === order.status">
+                <small class="text-muted d-block mb-3" *ngIf="allowedStatusOptions.length">
+                  Có thể chuyển tiếp: {{ getAllowedStatusLabels().join(', ') }}
+                </small>
+                <small class="text-muted d-block mb-3" *ngIf="!allowedStatusOptions.length">
+                  Trạng thái hiện tại không thể thay đổi.
+                </small>
+                <button class="btn btn-primary w-100" (click)="updateStatus()" [disabled]="updating || !allowedStatusOptions.length">
                   <span *ngIf="updating" class="spinner-border spinner-border-sm me-2"></span>
                   <i *ngIf="!updating" class="fas fa-check me-2"></i>
                   Cập nhật
@@ -162,6 +165,16 @@ export class AdminOrderDetailComponent implements OnInit {
   error = '';
   successMsg = '';
 
+  readonly statusTransitions: Record<string, string[]> = {
+    PENDING: ['CONFIRMED', 'CANCELLED'],
+    CONFIRMED: ['PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+    PROCESSING: ['SHIPPED', 'DELIVERED', 'CANCELLED'],
+    SHIPPED: ['DELIVERED', 'CANCELLED'],
+    DELIVERED: [],
+    CANCELLED: []
+  };
+  allowedStatusOptions: string[] = [];
+
   // new state for payment update
   selectedPaymentStatus = '';
   updatingPayment = false;
@@ -181,7 +194,11 @@ export class AdminOrderDetailComponent implements OnInit {
     this.orderService.adminGetById(this.orderId).subscribe({
       next: o => {
         this.order = o;
-        this.selectedStatus = this.normalizeStatusForSelect(o.status);
+        const normalized = this.normalizeStatusForSelect(o.status);
+        this.allowedStatusOptions = this.getAllowedStatusOptions(normalized);
+        this.selectedStatus = this.allowedStatusOptions.includes(this.selectedStatus)
+          ? this.selectedStatus
+          : (this.allowedStatusOptions[0] || normalized);
         // init payment status select
         this.selectedPaymentStatus = o.paymentStatus || 'UNPAID';
         this.loading = false;
@@ -194,11 +211,30 @@ export class AdminOrderDetailComponent implements OnInit {
   }
 
   private normalizeStatusForSelect(status: string): string {
-    return status === 'SHIPPED' ? 'SHIPPING' : status;
+    if (status === 'SHIPPING') return 'SHIPPED';
+    return status;
+  }
+
+  getAllowedStatusOptions(current: string): string[] {
+    const normalized = this.normalizeStatusForSelect(current);
+    return this.statusTransitions[normalized] || [];
+  }
+
+  getAllowedStatusLabels(): string[] {
+    return this.allowedStatusOptions.map(s => this.getStatusLabel(s));
   }
 
   updateStatus(): void {
     if (!this.order) return;
+    if (!this.allowedStatusOptions.includes(this.selectedStatus)) {
+      const currentLabel = this.getStatusLabel(this.order.status);
+      const allowed = this.getAllowedStatusLabels();
+      this.error = allowed.length
+        ? `Đơn hàng ở trạng thái "${currentLabel}" chỉ có thể chuyển sang: ${allowed.join(', ')}`
+        : `Trạng thái "${currentLabel}" không thể thay đổi.`;
+      this.successMsg = '';
+      return;
+    }
     this.updating = true;
     this.successMsg = '';
     this.error = ''; // clear previous error when starting update
@@ -206,11 +242,14 @@ export class AdminOrderDetailComponent implements OnInit {
       next: () => {
         this.updating = false;
         this.successMsg = 'Cập nhật trạng thái thành công!';
-        this.error = ''; // ensure error is cleared on success
+        this.error = '';
         this.loadOrder();
         setTimeout(() => this.successMsg = '', 3000);
       },
-      error: () => { this.error = 'Cập nhật thất bại!'; this.updating = false; }
+      error: err => {
+        this.error = err?.error?.message || err?.error?.error || 'Cập nhật thất bại!';
+        this.updating = false;
+      }
     });
   }
 
@@ -236,16 +275,16 @@ export class AdminOrderDetailComponent implements OnInit {
         this.loadOrder();
         setTimeout(() => this.successMsg = '', 3000);
       },
-      error: () => {
+      error: err => {
         this.updatingPayment = false;
-        this.error = 'Cập nhật trạng thái thanh toán thất bại!';
+        this.error = err?.error?.message || err?.error?.error || 'Cập nhật trạng thái thanh toán thất bại!';
       }
     });
   }
 
   getStatusClass(s: string): string {
     const m: Record<string, string> = {
-      PENDING: 'bg-warning text-dark', CONFIRMED: 'bg-info',
+      PENDING: 'bg-warning text-dark', CONFIRMED: 'bg-info', PROCESSING: 'bg-primary',
       SHIPPING: 'bg-primary', SHIPPED: 'bg-primary', DELIVERED: 'bg-success', CANCELLED: 'bg-danger'
     };
     return m[s] || 'bg-secondary';
@@ -253,7 +292,7 @@ export class AdminOrderDetailComponent implements OnInit {
 
   getStatusLabel(s: string): string {
     const m: Record<string, string> = {
-      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận',
+      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', PROCESSING: 'Đang xử lý',
       SHIPPING: 'Đang giao', SHIPPED: 'Đang giao', DELIVERED: 'Đã giao', CANCELLED: 'Đã hủy'
     };
     return m[s] || s;

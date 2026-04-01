@@ -40,10 +40,12 @@ export class OrderService {
   }
 
   updateStatus(id: number, status: string): Observable<Order> {
-    return this.http.put<Order>(`${environment.apiUrl}/admin/orders/${id}/status`, { status });
+    const params = new HttpParams().set('status', status);
+    return this.http.put<Order>(`${environment.apiUrl}/admin/orders/${id}/status`, { status }, { params });
   }
 
   updatePaymentStatus(id: number, paymentStatus: string): Observable<Order> {
-    return this.http.put<Order>(`${environment.apiUrl}/admin/orders/${id}/payment-status`, { paymentStatus });
+    const params = new HttpParams().set('paymentStatus', paymentStatus);
+    return this.http.put<Order>(`${environment.apiUrl}/admin/orders/${id}/payment-status`, { paymentStatus }, { params });
   }
 }
